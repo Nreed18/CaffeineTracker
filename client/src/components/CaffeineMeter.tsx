@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Skull } from "lucide-react";
 
 interface CaffeineMeterProps {
   currentDrinks: number;
@@ -16,9 +17,12 @@ export function CaffeineMeter({ currentDrinks, maxDrinks = 10 }: CaffeineMeterPr
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           <span>Today's Caffeine Meter</span>
-          <span className={`text-2xl font-bold font-[Manrope] ${isFull ? 'text-chart-3' : isWarning ? 'text-chart-3' : 'text-chart-2'}`}>
-            {currentDrinks}/{maxDrinks}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className={`text-2xl font-bold font-[Manrope] ${isFull ? 'text-chart-3' : isWarning ? 'text-chart-3' : 'text-chart-2'}`}>
+              {Math.round(percentage)}%
+            </span>
+            {isFull && <Skull className="h-6 w-6 text-chart-3" data-testid="icon-skull" />}
+          </div>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">

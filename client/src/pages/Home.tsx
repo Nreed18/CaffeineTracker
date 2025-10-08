@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { DrinkButton } from "@/components/DrinkButton";
@@ -16,7 +16,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useReactToPrint } from "react-to-print";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { format, startOfDay, isSameDay } from "date-fns";
 
 const COMMON_DRINKS = [
   { name: "Coffee", caffeineAmount: 95, icon: "coffee" as const },
@@ -25,6 +26,13 @@ const COMMON_DRINKS = [
   { name: "Energy Drink", caffeineAmount: 80, icon: "soda" as const },
 ];
 
+interface DrinkEntry {
+  id: string;
+  drinkName: string;
+  caffeineAmount: number;
+  timestamp: Date;
+}
+
 export default function Home() {
   const { toast } = useToast();
   const printRef = useRef<HTMLDivElement>(null);
@@ -32,7 +40,6 @@ export default function Home() {
   const [selectedPeriod, setSelectedPeriod] = useState("period-1");
   const [customDrinkDialogOpen, setCustomDrinkDialogOpen] = useState(false);
   const [customDrink, setCustomDrink] = useState({ name: "", caffeine: "" });
-  const [todayDrinkCount, setTodayDrinkCount] = useState(3);
   const [activeTab, setActiveTab] = useState("tracker");
 
   const [periods, setPeriods] = useState([
@@ -41,89 +48,133 @@ export default function Home() {
     { id: "period-3", name: "Period 3", startDate: "2025-10-15", endDate: "2025-10-19" },
   ]);
 
-  const weekData = [
-    {
-      day: "Mon",
-      date: "Oct 7",
-      drinks: [
-        { name: "Coffee", count: 2 },
-        { name: "Sweet Tea", count: 1 },
-      ],
-    },
-    {
-      day: "Tue",
-      date: "Oct 8",
-      drinks: [
-        { name: "Coffee", count: 3 },
-        { name: "Coke", count: 1 },
-      ],
-    },
-    {
-      day: "Wed",
-      date: "Oct 9",
-      drinks: [
-        { name: "Coffee", count: 1 },
-      ],
-    },
-    {
-      day: "Thu",
-      date: "Oct 10",
-      drinks: [
-        { name: "Coffee", count: 2 },
-        { name: "Energy Drink", count: 1 },
-        { name: "Coke", count: 2 },
-      ],
-    },
-    {
-      day: "Fri",
-      date: "Oct 11",
-      drinks: [
-        { name: "Coffee", count: 1 },
-      ],
-    },
-  ];
-
-  const dailyData = [
-    { day: "Monday", caffeine: 285 },
-    { day: "Tuesday", caffeine: 320 },
-    { day: "Wednesday", caffeine: 190 },
-    { day: "Thursday", caffeine: 405 },
-    { day: "Friday", caffeine: 225 },
-  ];
-
-  const historyEntries = [
+  const [drinkEntries, setDrinkEntries] = useState<DrinkEntry[]>([
     { id: "1", drinkName: "Coffee", caffeineAmount: 95, timestamp: new Date("2025-10-08T09:30:00") },
     { id: "2", drinkName: "Sweet Tea", caffeineAmount: 47, timestamp: new Date("2025-10-08T14:15:00") },
     { id: "3", drinkName: "Coke", caffeineAmount: 34, timestamp: new Date("2025-10-07T12:00:00") },
     { id: "4", drinkName: "Coffee", caffeineAmount: 95, timestamp: new Date("2025-10-07T08:45:00") },
     { id: "5", drinkName: "Energy Drink", caffeineAmount: 80, timestamp: new Date("2025-10-06T15:30:00") },
-  ];
+    { id: "6", drinkName: "Coffee", caffeineAmount: 95, timestamp: new Date("2025-10-05T10:00:00") },
+  ]);
 
-  const reportData = {
+  const todayDrinkCount = useMemo(() => {
+    const today = startOfDay(new Date());
+    return drinkEntries.filter(entry => isSameDay(entry.timestamp, today)).length;
+  }, [drinkEntries]);
+
+  const weekData = useMemo(() => {
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+    const today = new Date();
+    
+    return days.map((day, index) => {
+      const date = new Date(today);
+      const dayOfWeek = today.getDay();
+      const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      date.setDate(today.getDate() - daysFromMonday + index);
+      
+      const dayEntries = drinkEntries.filter(entry => 
+        isSameDay(entry.timestamp, date)
+      );
+      
+      const drinkTallies = dayEntries.reduce((acc, entry) => {
+        const existing = acc.find(d => d.name === entry.drinkName);
+        if (existing) {
+          existing.count++;
+        } else {
+          acc.push({ name: entry.drinkName, count: 1 });
+        }
+        return acc;
+      }, [] as Array<{ name: string; count: number }>);
+      
+      return {
+        day,
+        date: format(date, 'MMM d'),
+        drinks: drinkTallies,
+      };
+    });
+  }, [drinkEntries]);
+
+  const dailyData = useMemo(() => {
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+    const today = new Date();
+    
+    return days.map((day, index) => {
+      const date = new Date(today);
+      const dayOfWeek = today.getDay();
+      const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      date.setDate(today.getDate() - daysFromMonday + index);
+      
+      const dayEntries = drinkEntries.filter(entry => 
+        isSameDay(entry.timestamp, date)
+      );
+      
+      const totalCaffeine = dayEntries.reduce((sum, entry) => sum + entry.caffeineAmount, 0);
+      
+      return {
+        day,
+        caffeine: totalCaffeine,
+      };
+    });
+  }, [drinkEntries]);
+
+  const stats = useMemo(() => {
+    const periodEntries = drinkEntries;
+    const totalCaffeine = periodEntries.reduce((sum, entry) => sum + entry.caffeineAmount, 0);
+    const totalDrinks = periodEntries.length;
+    
+    const uniqueDays = new Set(
+      periodEntries.map(entry => format(startOfDay(entry.timestamp), 'yyyy-MM-dd'))
+    ).size;
+    
+    const avgDrinksPerDay = uniqueDays > 0 ? totalDrinks / uniqueDays : 0;
+    const avgCaffeinePerDay = uniqueDays > 0 ? totalCaffeine / uniqueDays : 0;
+    
+    return {
+      totalCaffeine,
+      totalDrinks,
+      avgDrinksPerDay,
+      avgCaffeinePerDay,
+    };
+  }, [drinkEntries]);
+
+  const reportData = useMemo(() => ({
     periodName: periods.find((p) => p.id === selectedPeriod)?.name || "Period 1",
     startDate: new Date("2025-10-01"),
     endDate: new Date("2025-10-05"),
-    totalCaffeine: 1425,
-    totalDrinks: 16,
-    avgDrinksPerDay: 3.2,
-    avgCaffeinePerDay: 285,
-    dailyBreakdown: [
-      { date: "Monday, Oct 1", drinks: 3, caffeine: 285 },
-      { date: "Tuesday, Oct 2", drinks: 4, caffeine: 320 },
-      { date: "Wednesday, Oct 3", drinks: 2, caffeine: 190 },
-      { date: "Thursday, Oct 4", drinks: 5, caffeine: 405 },
-      { date: "Friday, Oct 5", drinks: 2, caffeine: 225 },
-    ],
-    drinkHistory: historyEntries,
-  };
+    totalCaffeine: stats.totalCaffeine,
+    totalDrinks: stats.totalDrinks,
+    avgDrinksPerDay: stats.avgDrinksPerDay,
+    avgCaffeinePerDay: stats.avgCaffeinePerDay,
+    dailyBreakdown: dailyData.map((day, index) => ({
+      date: `${day.day}, Oct ${index + 1}`,
+      drinks: drinkEntries.filter(entry => {
+        const date = new Date();
+        const dayOfWeek = date.getDay();
+        const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+        const targetDate = new Date(date);
+        targetDate.setDate(date.getDate() - daysFromMonday + index);
+        return isSameDay(entry.timestamp, targetDate);
+      }).length,
+      caffeine: day.caffeine,
+    })),
+    drinkHistory: drinkEntries,
+  }), [periods, selectedPeriod, stats, dailyData, drinkEntries]);
 
   const handlePrint = useReactToPrint({
     content: () => printRef.current,
   });
 
   const handleDrinkLog = (drinkName: string, caffeineAmount: number) => {
+    const newEntry: DrinkEntry = {
+      id: `entry-${Date.now()}`,
+      drinkName,
+      caffeineAmount,
+      timestamp: new Date(),
+    };
+    
+    setDrinkEntries(prev => [newEntry, ...prev]);
+    
     console.log(`Logged ${drinkName} with ${caffeineAmount}mg caffeine`);
-    setTodayDrinkCount((prev) => prev + 1);
     toast({
       title: "Drink logged!",
       description: `${drinkName} (${caffeineAmount}mg) added to your tracker.`,
@@ -255,21 +306,21 @@ export default function Home() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <StatCard
                   title="Total Caffeine"
-                  value="1,425mg"
+                  value={`${stats.totalCaffeine.toLocaleString()}mg`}
                   subtitle="This period"
                   icon={TrendingUp}
                   variant="default"
                 />
                 <StatCard
                   title="Avg Drinks/Day"
-                  value="3.2"
-                  subtitle="Across 5 days"
+                  value={stats.avgDrinksPerDay.toFixed(1)}
+                  subtitle="Across all days"
                   icon={Coffee}
                   variant="success"
                 />
                 <StatCard
                   title="Daily Average"
-                  value="285mg"
+                  value={`${Math.round(stats.avgCaffeinePerDay)}mg`}
                   subtitle="Per day"
                   icon={Calendar}
                   variant="default"
@@ -279,7 +330,7 @@ export default function Home() {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <DailyIntakeChart data={dailyData} />
-              <DrinkHistoryList entries={historyEntries} />
+              <DrinkHistoryList entries={drinkEntries} />
             </div>
           </>
         )}
