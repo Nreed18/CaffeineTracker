@@ -1,13 +1,87 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { insertPeriodSchema, insertDrinkEntrySchema } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // put application routes here
-  // prefix all routes with /api
+  app.get("/api/periods", async (req, res) => {
+    try {
+      const periods = await storage.getAllPeriods();
+      res.json(periods);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch periods" });
+    }
+  });
 
-  // use storage to perform CRUD operations on the storage interface
-  // e.g. storage.insertUser(user) or storage.getUserByUsername(username)
+  app.post("/api/periods", async (req, res) => {
+    try {
+      const data = insertPeriodSchema.parse(req.body);
+      const period = await storage.createPeriod(data);
+      res.status(201).json(period);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid period data" });
+    }
+  });
+
+  app.put("/api/periods/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const data = insertPeriodSchema.parse(req.body);
+      const period = await storage.updatePeriod(id, data);
+      
+      if (!period) {
+        return res.status(404).json({ error: "Period not found" });
+      }
+      
+      res.json(period);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid period data" });
+    }
+  });
+
+  app.delete("/api/periods/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const deleted = await storage.deletePeriod(id);
+      
+      if (!deleted) {
+        return res.status(404).json({ error: "Period not found" });
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete period" });
+    }
+  });
+
+  app.get("/api/drink-entries", async (req, res) => {
+    try {
+      const entries = await storage.getAllDrinkEntries();
+      res.json(entries);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch drink entries" });
+    }
+  });
+
+  app.get("/api/drink-entries/period/:periodId", async (req, res) => {
+    try {
+      const { periodId } = req.params;
+      const entries = await storage.getDrinkEntriesByPeriod(periodId);
+      res.json(entries);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch drink entries" });
+    }
+  });
+
+  app.post("/api/drink-entries", async (req, res) => {
+    try {
+      const data = insertDrinkEntrySchema.parse(req.body);
+      const entry = await storage.createDrinkEntry(data);
+      res.status(201).json(entry);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid drink entry data" });
+    }
+  });
 
   const httpServer = createServer(app);
 
