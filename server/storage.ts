@@ -33,7 +33,12 @@ export class MemStorage implements IStorage {
 
   async createPeriod(insertPeriod: InsertPeriod): Promise<Period> {
     const id = randomUUID();
-    const period: Period = { ...insertPeriod, id };
+    const period: Period = {
+      id,
+      name: insertPeriod.name,
+      startDate: typeof insertPeriod.startDate === 'string' ? new Date(insertPeriod.startDate) : insertPeriod.startDate,
+      endDate: typeof insertPeriod.endDate === 'string' ? new Date(insertPeriod.endDate) : insertPeriod.endDate,
+    };
     this.periods.set(id, period);
     return period;
   }
@@ -42,7 +47,12 @@ export class MemStorage implements IStorage {
     const existing = this.periods.get(id);
     if (!existing) return undefined;
     
-    const updated: Period = { ...insertPeriod, id };
+    const updated: Period = {
+      id,
+      name: insertPeriod.name,
+      startDate: typeof insertPeriod.startDate === 'string' ? new Date(insertPeriod.startDate) : insertPeriod.startDate,
+      endDate: typeof insertPeriod.endDate === 'string' ? new Date(insertPeriod.endDate) : insertPeriod.endDate,
+    };
     this.periods.set(id, updated);
     return updated;
   }

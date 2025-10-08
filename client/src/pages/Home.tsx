@@ -1,4 +1,5 @@
-import { useState, useRef, useMemo } from "react";
+import { useRef, useMemo } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { DrinkButton } from "@/components/DrinkButton";
@@ -18,6 +19,9 @@ import { Label } from "@/components/ui/label";
 import { useReactToPrint } from "react-to-print";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format, startOfDay, isSameDay } from "date-fns";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import type { Period, DrinkEntry, InsertPeriod, InsertDrinkEntry } from "@shared/schema";
+import { useState } from "react";
 
 const COMMON_DRINKS = [
   { name: "Coffee", caffeineAmount: 95, icon: "coffee" as const },
@@ -26,40 +30,73 @@ const COMMON_DRINKS = [
   { name: "Energy Drink", caffeineAmount: 80, icon: "soda" as const },
 ];
 
-interface DrinkEntry {
-  id: string;
-  drinkName: string;
-  caffeineAmount: number;
-  timestamp: Date;
-}
-
 export default function Home() {
   const { toast } = useToast();
   const printRef = useRef<HTMLDivElement>(null);
 
-  const [selectedPeriod, setSelectedPeriod] = useState("period-1");
+  const [selectedPeriodId, setSelectedPeriodId] = useState<string>("");
   const [customDrinkDialogOpen, setCustomDrinkDialogOpen] = useState(false);
   const [customDrink, setCustomDrink] = useState({ name: "", caffeine: "" });
   const [activeTab, setActiveTab] = useState("tracker");
 
-  const [periods, setPeriods] = useState([
-    { id: "period-1", name: "Period 1", startDate: "2025-10-01", endDate: "2025-10-05" },
-    { id: "period-2", name: "Period 2", startDate: "2025-10-08", endDate: "2025-10-12" },
-    { id: "period-3", name: "Period 3", startDate: "2025-10-15", endDate: "2025-10-19" },
-  ]);
+  const { data: periods = [], isLoading: periodsLoading } = useQuery<Period[]>({
+    queryKey: ["/api/periods"],
+  });
 
-  const [drinkEntries, setDrinkEntries] = useState<DrinkEntry[]>([
-    { id: "1", drinkName: "Coffee", caffeineAmount: 95, timestamp: new Date("2025-10-08T09:30:00") },
-    { id: "2", drinkName: "Sweet Tea", caffeineAmount: 47, timestamp: new Date("2025-10-08T14:15:00") },
-    { id: "3", drinkName: "Coke", caffeineAmount: 34, timestamp: new Date("2025-10-07T12:00:00") },
-    { id: "4", drinkName: "Coffee", caffeineAmount: 95, timestamp: new Date("2025-10-07T08:45:00") },
-    { id: "5", drinkName: "Energy Drink", caffeineAmount: 80, timestamp: new Date("2025-10-06T15:30:00") },
-    { id: "6", drinkName: "Coffee", caffeineAmount: 95, timestamp: new Date("2025-10-05T10:00:00") },
-  ]);
+  const { data: drinkEntries = [], isLoading: entriesLoading } = useQuery<DrinkEntry[]>({
+    queryKey: ["/api/drink-entries"],
+  });
+
+  const selectedPeriod = useMemo(() => {
+    if (!selectedPeriodId && periods.length > 0) {
+      setSelectedPeriodId(periods[0].id);
+      return periods[0];
+    }
+    return periods.find(p => p.id === selectedPeriodId);
+  }, [selectedPeriodId, periods]);
+
+  const createPeriodMutation = useMutation({
+    mutationFn: async (data: InsertPeriod) => {
+      const res = await apiRequest("POST", "/api/periods", data);
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/periods"] });
+    },
+  });
+
+  const updatePeriodMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: InsertPeriod }) => {
+      const res = await apiRequest("PUT", `/api/periods/${id}`, data);
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/periods"] });
+    },
+  });
+
+  const deletePeriodMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/periods/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/periods"] });
+    },
+  });
+
+  const createDrinkEntryMutation = useMutation({
+    mutationFn: async (data: InsertDrinkEntry) => {
+      const res = await apiRequest("POST", "/api/drink-entries", data);
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/drink-entries"] });
+    },
+  });
 
   const todayDrinkCount = useMemo(() => {
     const today = startOfDay(new Date());
-    return drinkEntries.filter(entry => isSameDay(entry.timestamp, today)).length;
+    return drinkEntries.filter(entry => isSameDay(new Date(entry.timestamp), today)).length;
   }, [drinkEntries]);
 
   const weekData = useMemo(() => {
@@ -73,7 +110,7 @@ export default function Home() {
       date.setDate(today.getDate() - daysFromMonday + index);
       
       const dayEntries = drinkEntries.filter(entry => 
-        isSameDay(entry.timestamp, date)
+        isSameDay(new Date(entry.timestamp), date)
       );
       
       const drinkTallies = dayEntries.reduce((acc, entry) => {
@@ -105,7 +142,7 @@ export default function Home() {
       date.setDate(today.getDate() - daysFromMonday + index);
       
       const dayEntries = drinkEntries.filter(entry => 
-        isSameDay(entry.timestamp, date)
+        isSameDay(new Date(entry.timestamp), date)
       );
       
       const totalCaffeine = dayEntries.reduce((sum, entry) => sum + entry.caffeineAmount, 0);
@@ -123,7 +160,7 @@ export default function Home() {
     const totalDrinks = periodEntries.length;
     
     const uniqueDays = new Set(
-      periodEntries.map(entry => format(startOfDay(entry.timestamp), 'yyyy-MM-dd'))
+      periodEntries.map(entry => format(startOfDay(new Date(entry.timestamp)), 'yyyy-MM-dd'))
     ).size;
     
     const avgDrinksPerDay = uniqueDays > 0 ? totalDrinks / uniqueDays : 0;
@@ -138,9 +175,9 @@ export default function Home() {
   }, [drinkEntries]);
 
   const reportData = useMemo(() => ({
-    periodName: periods.find((p) => p.id === selectedPeriod)?.name || "Period 1",
-    startDate: new Date("2025-10-01"),
-    endDate: new Date("2025-10-05"),
+    periodName: selectedPeriod?.name || "All Time",
+    startDate: selectedPeriod ? new Date(selectedPeriod.startDate) : new Date(),
+    endDate: selectedPeriod ? new Date(selectedPeriod.endDate) : new Date(),
     totalCaffeine: stats.totalCaffeine,
     totalDrinks: stats.totalDrinks,
     avgDrinksPerDay: stats.avgDrinksPerDay,
@@ -153,31 +190,41 @@ export default function Home() {
         const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
         const targetDate = new Date(date);
         targetDate.setDate(date.getDate() - daysFromMonday + index);
-        return isSameDay(entry.timestamp, targetDate);
+        return isSameDay(new Date(entry.timestamp), targetDate);
       }).length,
       caffeine: day.caffeine,
     })),
-    drinkHistory: drinkEntries,
-  }), [periods, selectedPeriod, stats, dailyData, drinkEntries]);
+    drinkHistory: drinkEntries.map(e => ({
+      ...e,
+      timestamp: new Date(e.timestamp),
+    })),
+  }), [selectedPeriod, stats, dailyData, drinkEntries]);
 
   const handlePrint = useReactToPrint({
     content: () => printRef.current,
   });
 
   const handleDrinkLog = (drinkName: string, caffeineAmount: number) => {
-    const newEntry: DrinkEntry = {
-      id: `entry-${Date.now()}`,
+    if (!selectedPeriod) {
+      toast({
+        title: "No period selected",
+        description: "Please create a period first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    createDrinkEntryMutation.mutate({
+      periodId: selectedPeriod.id,
       drinkName,
       caffeineAmount,
-      timestamp: new Date(),
-    };
-    
-    setDrinkEntries(prev => [newEntry, ...prev]);
-    
-    console.log(`Logged ${drinkName} with ${caffeineAmount}mg caffeine`);
-    toast({
-      title: "Drink logged!",
-      description: `${drinkName} (${caffeineAmount}mg) added to your tracker.`,
+    }, {
+      onSuccess: () => {
+        toast({
+          title: "Drink logged!",
+          description: `${drinkName} (${caffeineAmount}mg) added to your tracker.`,
+        });
+      },
     });
   };
 
@@ -189,33 +236,62 @@ export default function Home() {
     }
   };
 
-  const handleAddPeriod = (period: Omit<typeof periods[0], 'id'>) => {
-    const newPeriod = { ...period, id: `period-${Date.now()}` };
-    setPeriods([...periods, newPeriod]);
-    console.log("Added period:", newPeriod);
-    toast({
-      title: "Period added!",
-      description: `${period.name} has been created.`,
+  const handleAddPeriod = (period: { name: string; startDate: string; endDate: string }) => {
+    const data: InsertPeriod = {
+      name: period.name,
+      startDate: period.startDate,
+      endDate: period.endDate,
+    };
+    
+    createPeriodMutation.mutate(data, {
+      onSuccess: () => {
+        toast({
+          title: "Period added!",
+          description: `${period.name} has been created.`,
+        });
+      },
     });
   };
 
-  const handleEditPeriod = (id: string, period: Omit<typeof periods[0], 'id'>) => {
-    setPeriods(periods.map((p) => (p.id === id ? { ...period, id } : p)));
-    console.log("Edited period:", id, period);
-    toast({
-      title: "Period updated!",
-      description: `${period.name} has been updated.`,
+  const handleEditPeriod = (id: string, period: { name: string; startDate: string; endDate: string }) => {
+    const data: InsertPeriod = {
+      name: period.name,
+      startDate: period.startDate,
+      endDate: period.endDate,
+    };
+    
+    updatePeriodMutation.mutate({ id, data }, {
+      onSuccess: () => {
+        toast({
+          title: "Period updated!",
+          description: `${period.name} has been updated.`,
+        });
+      },
     });
   };
 
   const handleDeletePeriod = (id: string) => {
-    setPeriods(periods.filter((p) => p.id !== id));
-    console.log("Deleted period:", id);
-    toast({
-      title: "Period deleted!",
-      description: "The period has been removed.",
+    deletePeriodMutation.mutate(id, {
+      onSuccess: () => {
+        toast({
+          title: "Period deleted!",
+          description: "The period has been removed.",
+        });
+      },
     });
   };
+
+  const isLoading = periodsLoading || entriesLoading;
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-lg font-semibold">Loading...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -256,89 +332,111 @@ export default function Home() {
         {activeTab === "tracker" && (
           <>
             <div className="mb-4">
-              <PeriodSelector
-                periods={periods.map(p => ({ id: p.id, name: p.name }))}
-                selectedPeriodId={selectedPeriod}
-                onPeriodChange={setSelectedPeriod}
-              />
+              {periods.length > 0 ? (
+                <PeriodSelector
+                  periods={periods.map(p => ({ id: p.id, name: p.name }))}
+                  selectedPeriodId={selectedPeriodId}
+                  onPeriodChange={setSelectedPeriodId}
+                />
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground mb-4">No periods yet. Create one to get started!</p>
+                  <Button onClick={() => setActiveTab("manage-periods")} data-testid="button-create-first-period">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Your First Period
+                  </Button>
+                </div>
+              )}
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-              <div className="lg:col-span-2">
-                <section className="mb-8">
-                  <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-xl font-semibold">Quick Log</h2>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCustomDrinkDialogOpen(true)}
-                      data-testid="button-add-custom-drink"
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Custom Drink
-                    </Button>
+            {periods.length > 0 && (
+              <>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                  <div className="lg:col-span-2">
+                    <section className="mb-8">
+                      <div className="flex items-center justify-between mb-6">
+                        <h2 className="text-xl font-semibold">Quick Log</h2>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCustomDrinkDialogOpen(true)}
+                          data-testid="button-add-custom-drink"
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Custom Drink
+                        </Button>
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        {COMMON_DRINKS.map((drink) => (
+                          <DrinkButton
+                            key={drink.name}
+                            name={drink.name}
+                            caffeineAmount={drink.caffeineAmount}
+                            icon={drink.icon}
+                            onClick={() => handleDrinkLog(drink.name, drink.caffeineAmount)}
+                          />
+                        ))}
+                      </div>
+                    </section>
+
+                    <section className="mb-8">
+                      <WeekCalendarView weekData={weekData} />
+                    </section>
                   </div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {COMMON_DRINKS.map((drink) => (
-                      <DrinkButton
-                        key={drink.name}
-                        name={drink.name}
-                        caffeineAmount={drink.caffeineAmount}
-                        icon={drink.icon}
-                        onClick={() => handleDrinkLog(drink.name, drink.caffeineAmount)}
-                      />
-                    ))}
+
+                  <div>
+                    <CaffeineMeter currentDrinks={todayDrinkCount} maxDrinks={10} />
+                  </div>
+                </div>
+
+                <section className="mb-8">
+                  <h2 className="text-xl font-semibold mb-6">Statistics</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <StatCard
+                      title="Total Caffeine"
+                      value={`${stats.totalCaffeine.toLocaleString()}mg`}
+                      subtitle="This period"
+                      icon={TrendingUp}
+                      variant="default"
+                    />
+                    <StatCard
+                      title="Avg Drinks/Day"
+                      value={stats.avgDrinksPerDay.toFixed(1)}
+                      subtitle="Across all days"
+                      icon={Coffee}
+                      variant="success"
+                    />
+                    <StatCard
+                      title="Daily Average"
+                      value={`${Math.round(stats.avgCaffeinePerDay)}mg`}
+                      subtitle="Per day"
+                      icon={Calendar}
+                      variant="default"
+                    />
                   </div>
                 </section>
 
-                <section className="mb-8">
-                  <WeekCalendarView weekData={weekData} />
-                </section>
-              </div>
-
-              <div>
-                <CaffeineMeter currentDrinks={todayDrinkCount} maxDrinks={10} />
-              </div>
-            </div>
-
-            <section className="mb-8">
-              <h2 className="text-xl font-semibold mb-6">Statistics</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <StatCard
-                  title="Total Caffeine"
-                  value={`${stats.totalCaffeine.toLocaleString()}mg`}
-                  subtitle="This period"
-                  icon={TrendingUp}
-                  variant="default"
-                />
-                <StatCard
-                  title="Avg Drinks/Day"
-                  value={stats.avgDrinksPerDay.toFixed(1)}
-                  subtitle="Across all days"
-                  icon={Coffee}
-                  variant="success"
-                />
-                <StatCard
-                  title="Daily Average"
-                  value={`${Math.round(stats.avgCaffeinePerDay)}mg`}
-                  subtitle="Per day"
-                  icon={Calendar}
-                  variant="default"
-                />
-              </div>
-            </section>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <DailyIntakeChart data={dailyData} />
-              <DrinkHistoryList entries={drinkEntries} />
-            </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <DailyIntakeChart data={dailyData} />
+                  <DrinkHistoryList entries={drinkEntries.map(e => ({
+                    ...e,
+                    timestamp: new Date(e.timestamp),
+                  }))} />
+                </div>
+              </>
+            )}
           </>
         )}
 
         {activeTab === "manage-periods" && (
           <div className="max-w-3xl mx-auto">
             <PeriodManagement
-              periods={periods}
+              periods={periods.map(p => ({
+                id: p.id,
+                name: p.name,
+                startDate: format(new Date(p.startDate), 'yyyy-MM-dd'),
+                endDate: format(new Date(p.endDate), 'yyyy-MM-dd'),
+              }))}
               onAddPeriod={handleAddPeriod}
               onEditPeriod={handleEditPeriod}
               onDeletePeriod={handleDeletePeriod}

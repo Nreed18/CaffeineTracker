@@ -18,11 +18,17 @@ export const drinkEntries = pgTable("drink_entries", {
   timestamp: timestamp("timestamp").notNull().defaultNow(),
 });
 
-export const insertPeriodSchema = createInsertSchema(periods, {
-  startDate: z.string().transform((str) => new Date(str)),
-  endDate: z.string().transform((str) => new Date(str)),
-}).omit({
+const basePeriodSchema = createInsertSchema(periods).omit({
   id: true,
+});
+
+export const insertPeriodSchema = basePeriodSchema.extend({
+  startDate: z.union([z.string(), z.date()]).transform((val) => 
+    typeof val === 'string' ? new Date(val) : val
+  ),
+  endDate: z.union([z.string(), z.date()]).transform((val) => 
+    typeof val === 'string' ? new Date(val) : val
+  ),
 });
 
 export const insertDrinkEntrySchema = createInsertSchema(drinkEntries).omit({
@@ -31,6 +37,6 @@ export const insertDrinkEntrySchema = createInsertSchema(drinkEntries).omit({
 });
 
 export type Period = typeof periods.$inferSelect;
-export type InsertPeriod = z.infer<typeof insertPeriodSchema>;
+export type InsertPeriod = z.input<typeof insertPeriodSchema>;
 export type DrinkEntry = typeof drinkEntries.$inferSelect;
 export type InsertDrinkEntry = z.infer<typeof insertDrinkEntrySchema>;
