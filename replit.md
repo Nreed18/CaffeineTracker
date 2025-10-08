@@ -26,6 +26,7 @@ Preferred communication style: Simple, everyday language.
 **State Management:**
 - TanStack Query (React Query) for server state management and caching
 - Local React state for UI-specific interactions
+- localStorage for persisting user preferences (quick-log drinks customization)
 - Custom hooks pattern for reusable logic (e.g., `useIsMobile`, `useTheme`)
 
 **Design System:**
@@ -35,9 +36,13 @@ Preferred communication style: Simple, everyday language.
 - Print-optimized layouts for report generation
 
 **Key Features:**
-- Period-based tracking (users can create multiple tracking periods)
-- Quick-log drink buttons with preset caffeine amounts
+- Period-based tracking (users can create unlimited named tracking periods)
+- Quick-log drink buttons with customizable preset caffeine amounts
+- Custom drink logging with date/time picker for backdating entries
+- Customizable quick-log drinks (stored in localStorage)
 - Real-time statistics and visualizations (meters, charts, calendars)
+- Monday-Friday calendar view showing drink tallies
+- Daily caffeine meter (0-100%) with skull icon at maximum
 - Printable reports using react-to-print library
 - Toast notifications for user feedback
 
@@ -54,9 +59,10 @@ Preferred communication style: Simple, everyday language.
 - Schema-first approach with Zod validation integrated via drizzle-zod
 
 **Data Models:**
-- `periods` table: Tracks time periods for caffeine monitoring
-- `drink_entries` table: Stores individual drink logs with caffeine amounts
+- `periods` table: Tracks time periods for caffeine monitoring (id, name, startDate, endDate)
+- `drink_entries` table: Stores individual drink logs with caffeine amounts and timestamps (id, periodId, drinkName, caffeineAmount, timestamp)
 - UUID-based primary keys for scalability
+- Timestamps support both current time and backdated entries for importing history
 
 **Development Strategy:**
 - In-memory storage implementation (`MemStorage`) for development/testing
