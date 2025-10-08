@@ -18,7 +18,10 @@ export const drinkEntries = pgTable("drink_entries", {
   timestamp: timestamp("timestamp").notNull().defaultNow(),
 });
 
-export const insertPeriodSchema = createInsertSchema(periods).omit({
+export const insertPeriodSchema = createInsertSchema(periods, {
+  startDate: z.string().transform((str) => new Date(str)),
+  endDate: z.string().transform((str) => new Date(str)),
+}).omit({
   id: true,
 });
 

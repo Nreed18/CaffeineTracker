@@ -5,8 +5,11 @@ export interface IStorage {
   getPeriod(id: string): Promise<Period | undefined>;
   getAllPeriods(): Promise<Period[]>;
   createPeriod(period: InsertPeriod): Promise<Period>;
+  updatePeriod(id: string, period: InsertPeriod): Promise<Period | undefined>;
+  deletePeriod(id: string): Promise<boolean>;
   
   getDrinkEntry(id: string): Promise<DrinkEntry | undefined>;
+  getAllDrinkEntries(): Promise<DrinkEntry[]>;
   getDrinkEntriesByPeriod(periodId: string): Promise<DrinkEntry[]>;
   createDrinkEntry(entry: InsertDrinkEntry): Promise<DrinkEntry>;
 }
@@ -35,8 +38,27 @@ export class MemStorage implements IStorage {
     return period;
   }
 
+  async updatePeriod(id: string, insertPeriod: InsertPeriod): Promise<Period | undefined> {
+    const existing = this.periods.get(id);
+    if (!existing) return undefined;
+    
+    const updated: Period = { ...insertPeriod, id };
+    this.periods.set(id, updated);
+    return updated;
+  }
+
+  async deletePeriod(id: string): Promise<boolean> {
+    return this.periods.delete(id);
+  }
+
   async getDrinkEntry(id: string): Promise<DrinkEntry | undefined> {
     return this.drinkEntries.get(id);
+  }
+
+  async getAllDrinkEntries(): Promise<DrinkEntry[]> {
+    return Array.from(this.drinkEntries.values()).sort(
+      (a, b) => b.timestamp.getTime() - a.timestamp.getTime()
+    );
   }
 
   async getDrinkEntriesByPeriod(periodId: string): Promise<DrinkEntry[]> {
