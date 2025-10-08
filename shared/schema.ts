@@ -42,4 +42,4 @@ export const insertDrinkEntrySchema = createInsertSchema(drinkEntries, {
 export type Period = typeof periods.$inferSelect;
 export type InsertPeriod = z.input<typeof insertPeriodSchema>;
 export type DrinkEntry = typeof drinkEntries.$inferSelect;
-export type InsertDrinkEntry = z.infer<typeof insertDrinkEntrySchema>;
+export type InsertDrinkEntry = z.input<typeof insertDrinkEntrySchema>;
