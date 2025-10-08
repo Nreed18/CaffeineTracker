@@ -1,6 +1,17 @@
 import { format } from "date-fns";
 import { forwardRef } from "react";
 
+interface DrinkTally {
+  name: string;
+  count: number;
+}
+
+interface DayData {
+  day: string;
+  date: string;
+  drinks: DrinkTally[];
+}
+
 interface ReportData {
   periodName: string;
   startDate: Date;
@@ -9,16 +20,7 @@ interface ReportData {
   totalDrinks: number;
   avgDrinksPerDay: number;
   avgCaffeinePerDay: number;
-  dailyBreakdown: Array<{
-    date: string;
-    drinks: number;
-    caffeine: number;
-  }>;
-  drinkHistory: Array<{
-    drinkName: string;
-    caffeineAmount: number;
-    timestamp: Date;
-  }>;
+  weekData: DayData[];
 }
 
 interface PrintableReportProps {
@@ -32,93 +34,96 @@ export const PrintableReport = forwardRef<HTMLDivElement, PrintableReportProps>(
         <style>
           {`
             @media print {
-              @page { margin: 0.5in; }
-              body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+              @page { 
+                margin: 0.5in;
+                size: landscape;
+              }
+              body { 
+                -webkit-print-color-adjust: exact; 
+                print-color-adjust: exact; 
+              }
               .no-print { display: none !important; }
-              .page-break { page-break-after: always; }
             }
           `}
         </style>
         
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Caffeine Intake Report</h1>
-          <p className="text-gray-600">
-            Generated on {format(new Date(), "MMMM d, yyyy 'at' h:mm a")}
-          </p>
-        </div>
-
-        <div className="mb-8">
-          <h2 className="text-2xl font-semibold mb-4">{data.periodName}</h2>
-          <p className="text-gray-700">
-            {format(data.startDate, "MMMM d, yyyy")} - {format(data.endDate, "MMMM d, yyyy")}
-          </p>
-        </div>
-
-        <div className="mb-8 grid grid-cols-2 gap-4">
-          <div className="border border-gray-300 rounded-lg p-4">
-            <h3 className="text-sm font-medium text-gray-600 mb-1">Total Caffeine</h3>
-            <p className="text-3xl font-bold">{data.totalCaffeine}mg</p>
-          </div>
-          <div className="border border-gray-300 rounded-lg p-4">
-            <h3 className="text-sm font-medium text-gray-600 mb-1">Total Drinks</h3>
-            <p className="text-3xl font-bold">{data.totalDrinks}</p>
-          </div>
-          <div className="border border-gray-300 rounded-lg p-4">
-            <h3 className="text-sm font-medium text-gray-600 mb-1">Avg Drinks/Day</h3>
-            <p className="text-3xl font-bold">{data.avgDrinksPerDay.toFixed(1)}</p>
-          </div>
-          <div className="border border-gray-300 rounded-lg p-4">
-            <h3 className="text-sm font-medium text-gray-600 mb-1">Avg Caffeine/Day</h3>
-            <p className="text-3xl font-bold">{data.avgCaffeinePerDay.toFixed(0)}mg</p>
+        <div className="mb-6">
+          <div className="flex items-baseline justify-between">
+            <div>
+              <h1 className="text-3xl font-bold mb-1">Caffeine Intake Report</h1>
+              <p className="text-sm text-gray-500">
+                Generated on {format(new Date(), "MMMM d, yyyy 'at' h:mm a")}
+              </p>
+            </div>
+            <div className="text-right">
+              <h2 className="text-2xl font-semibold">{data.periodName}</h2>
+              <p className="text-sm text-gray-600">
+                {format(data.startDate, "MMM d, yyyy")} - {format(data.endDate, "MMM d, yyyy")}
+              </p>
+            </div>
           </div>
         </div>
 
-        <div className="mb-8">
-          <h2 className="text-xl font-semibold mb-4">Daily Breakdown</h2>
-          <table className="w-full border-collapse">
-            <thead>
-              <tr className="border-b-2 border-gray-300">
-                <th className="text-left py-2 px-4">Date</th>
-                <th className="text-right py-2 px-4">Drinks</th>
-                <th className="text-right py-2 px-4">Caffeine (mg)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.dailyBreakdown.map((day, idx) => (
-                <tr key={idx} className="border-b border-gray-200">
-                  <td className="py-2 px-4">{day.date}</td>
-                  <td className="text-right py-2 px-4">{day.drinks}</td>
-                  <td className="text-right py-2 px-4">{day.caffeine}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="mb-6">
+          <h2 className="text-lg font-semibold mb-3">Weekly Calendar</h2>
+          <div className="grid grid-cols-5 gap-3">
+            {data.weekData.map((dayData) => (
+              <div
+                key={dayData.day}
+                className="border border-gray-300 rounded-md p-3"
+              >
+                <div className="text-center mb-2">
+                  <div className="text-sm font-semibold">{dayData.day}</div>
+                  <div className="text-xs text-gray-500">{dayData.date}</div>
+                </div>
+                <div className="space-y-1.5">
+                  {dayData.drinks.length === 0 ? (
+                    <div className="text-xs text-center text-gray-400 py-2">
+                      No drinks
+                    </div>
+                  ) : (
+                    dayData.drinks.map((drink, idx) => (
+                      <div
+                        key={idx}
+                        className="bg-gray-100 rounded px-2 py-1"
+                      >
+                        <div className="text-xs font-medium truncate" title={drink.name}>
+                          {drink.name}
+                        </div>
+                        <div className="flex items-center gap-0.5 mt-1">
+                          {Array.from({ length: drink.count }).map((_, i) => (
+                            <div
+                              key={i}
+                              className="w-1.5 h-3 bg-black rounded-sm"
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
-        <div className="page-break"></div>
-
-        <div>
-          <h2 className="text-xl font-semibold mb-4">Complete History</h2>
-          <table className="w-full border-collapse">
-            <thead>
-              <tr className="border-b-2 border-gray-300">
-                <th className="text-left py-2 px-4">Date & Time</th>
-                <th className="text-left py-2 px-4">Drink</th>
-                <th className="text-right py-2 px-4">Caffeine (mg)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.drinkHistory.map((entry, idx) => (
-                <tr key={idx} className="border-b border-gray-200">
-                  <td className="py-2 px-4">
-                    {format(entry.timestamp, "MMM d, yyyy h:mm a")}
-                  </td>
-                  <td className="py-2 px-4">{entry.drinkName}</td>
-                  <td className="text-right py-2 px-4">{entry.caffeineAmount}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="grid grid-cols-4 gap-4">
+          <div className="border border-gray-300 rounded-lg p-3">
+            <h3 className="text-xs font-medium text-gray-600 mb-1">Total Caffeine</h3>
+            <p className="text-2xl font-bold">{data.totalCaffeine}mg</p>
+          </div>
+          <div className="border border-gray-300 rounded-lg p-3">
+            <h3 className="text-xs font-medium text-gray-600 mb-1">Total Drinks</h3>
+            <p className="text-2xl font-bold">{data.totalDrinks}</p>
+          </div>
+          <div className="border border-gray-300 rounded-lg p-3">
+            <h3 className="text-xs font-medium text-gray-600 mb-1">Avg Drinks/Day</h3>
+            <p className="text-2xl font-bold">{data.avgDrinksPerDay.toFixed(1)}</p>
+          </div>
+          <div className="border border-gray-300 rounded-lg p-3">
+            <h3 className="text-xs font-medium text-gray-600 mb-1">Avg Caffeine/Day</h3>
+            <p className="text-2xl font-bold">{data.avgCaffeinePerDay.toFixed(0)}mg</p>
+          </div>
         </div>
       </div>
     );

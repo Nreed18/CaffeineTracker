@@ -196,26 +196,11 @@ export default function Home() {
     totalDrinks: stats.totalDrinks,
     avgDrinksPerDay: stats.avgDrinksPerDay,
     avgCaffeinePerDay: stats.avgCaffeinePerDay,
-    dailyBreakdown: dailyData.map((day, index) => ({
-      date: `${day.day}, Oct ${index + 1}`,
-      drinks: drinkEntries.filter(entry => {
-        const date = new Date();
-        const dayOfWeek = date.getDay();
-        const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-        const targetDate = new Date(date);
-        targetDate.setDate(date.getDate() - daysFromMonday + index);
-        return isSameDay(new Date(entry.timestamp), targetDate);
-      }).length,
-      caffeine: day.caffeine,
-    })),
-    drinkHistory: drinkEntries.map(e => ({
-      ...e,
-      timestamp: new Date(e.timestamp),
-    })),
-  }), [selectedPeriod, stats, dailyData, drinkEntries]);
+    weekData: weekData,
+  }), [selectedPeriod, stats, weekData]);
 
   const handlePrint = useReactToPrint({
-    content: () => printRef.current,
+    contentRef: printRef,
   });
 
   const handleDrinkLog = (drinkName: string, caffeineAmount: number) => {
