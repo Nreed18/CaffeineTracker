@@ -62,20 +62,37 @@ cd /opt/caffeine-tracker
 # git clone <your-repo-url> .
 
 # Or if uploading manually, copy all project files to /opt/caffeine-tracker
+
+# IMPORTANT: Verify your application directory structure
+# The package.json should be in the current directory
+ls package.json
+
+# If your app is in a subdirectory (e.g., /opt/caffeine-tracker/CaffeineTracker/),
+# you need to cd into that directory:
+# cd CaffeineTracker
 ```
 
 ## Step 5: Install Dependencies
 
 ```bash
+# Make sure you're in the directory with package.json
+# If in subdirectory: cd /opt/caffeine-tracker/CaffeineTracker
 cd /opt/caffeine-tracker
+
 npm install
 ```
 
 ## Step 6: Configure Environment Variables
 
 ```bash
-# Create .env file
-nano .env
+# Create .env file in the SAME directory as package.json
+# This is crucial - the .env must be in your app's root directory
+
+# If your app is in /opt/caffeine-tracker:
+nano /opt/caffeine-tracker/.env
+
+# If your app is in a subdirectory like /opt/caffeine-tracker/CaffeineTracker:
+# nano /opt/caffeine-tracker/CaffeineTracker/.env
 ```
 
 Add the following content (replace with your actual values):
@@ -135,8 +152,13 @@ If it works, press Ctrl+C to stop it. Now let's set it up as a service.
 sudo nano /etc/systemd/system/caffeine-tracker.service
 ```
 
-Add the following content:
+Add the following content (adjust paths based on your setup):
 
+**IMPORTANT:** Replace the paths below based on your actual directory structure:
+- If your app is in `/opt/caffeine-tracker/` (package.json directly there), use the first example
+- If your app is in `/opt/caffeine-tracker/CaffeineTracker/` (in a subdirectory), use the second example
+
+**Option 1: App directly in /opt/caffeine-tracker**
 ```ini
 [Unit]
 Description=Caffeine Tracker Application
@@ -156,7 +178,30 @@ RestartSec=10
 WantedBy=multi-user.target
 ```
 
+**Option 2: App in subdirectory /opt/caffeine-tracker/CaffeineTracker**
+```ini
+[Unit]
+Description=Caffeine Tracker Application
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=your_username
+WorkingDirectory=/opt/caffeine-tracker/CaffeineTracker
+Environment=NODE_ENV=production
+EnvironmentFile=/opt/caffeine-tracker/CaffeineTracker/.env
+ExecStart=/usr/bin/npm run dev
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+```
+
 Replace `your_username` with your actual Ubuntu username.
+
+To find your username: `whoami`
+To verify your app directory: `ls -la /opt/caffeine-tracker/package.json`
 
 ```bash
 # Reload systemd, enable and start service
@@ -327,6 +372,63 @@ sudo -u postgres psql caffeine_tracker < backup_20241008.sql
 ```
 
 ## Troubleshooting
+
+### Error: "DATABASE_URL must be set"
+
+This is the most common error. It means the .env file isn't in the right location or isn't being loaded.
+
+**Solution:**
+
+1. First, find where your app actually is:
+```bash
+# Find the directory with package.json
+find /opt/caffeine-tracker -name "package.json"
+```
+
+2. Check if .env exists in that directory:
+```bash
+# If app is in /opt/caffeine-tracker:
+ls -la /opt/caffeine-tracker/.env
+
+# If app is in /opt/caffeine-tracker/CaffeineTracker:
+ls -la /opt/caffeine-tracker/CaffeineTracker/.env
+```
+
+3. If .env is missing, create it in the correct location:
+```bash
+# Replace this path with your actual app directory
+cd /opt/caffeine-tracker/CaffeineTracker  # or /opt/caffeine-tracker
+
+# Create .env file
+nano .env
+```
+
+Add this content (replace with your actual values):
+```env
+DATABASE_URL=postgresql://caffeine_user:your_password@localhost:5432/caffeine_tracker
+PGHOST=localhost
+PGPORT=5432
+PGUSER=caffeine_user
+PGPASSWORD=your_password
+PGDATABASE=caffeine_tracker
+SESSION_SECRET=your_random_secret_here
+NODE_ENV=production
+PORT=5000
+```
+
+4. Update the systemd service to point to the correct paths:
+```bash
+sudo nano /etc/systemd/system/caffeine-tracker.service
+```
+
+Make sure `WorkingDirectory` and `EnvironmentFile` both point to the same directory where your package.json and .env are located.
+
+5. Reload and restart:
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart caffeine-tracker
+sudo systemctl status caffeine-tracker
+```
 
 ### Application Won't Start
 ```bash
