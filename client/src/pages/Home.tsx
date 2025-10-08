@@ -4,15 +4,19 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { DrinkButton } from "@/components/DrinkButton";
 import { PeriodSelector } from "@/components/PeriodSelector";
 import { StatCard } from "@/components/StatCard";
+import { CaffeineMeter } from "@/components/CaffeineMeter";
+import { WeekCalendarView } from "@/components/WeekCalendarView";
+import { PeriodManagement } from "@/components/PeriodManagement";
 import { DailyIntakeChart } from "@/components/DailyIntakeChart";
 import { DrinkHistoryList } from "@/components/DrinkHistoryList";
 import { PrintableReport } from "@/components/PrintableReport";
-import { TrendingUp, Coffee, Calendar, Printer, Plus } from "lucide-react";
+import { TrendingUp, Coffee, Calendar, Printer, Plus, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useReactToPrint } from "react-to-print";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const COMMON_DRINKS = [
   { name: "Coffee", caffeineAmount: 95, icon: "coffee" as const },
@@ -28,11 +32,55 @@ export default function Home() {
   const [selectedPeriod, setSelectedPeriod] = useState("period-1");
   const [customDrinkDialogOpen, setCustomDrinkDialogOpen] = useState(false);
   const [customDrink, setCustomDrink] = useState({ name: "", caffeine: "" });
+  const [todayDrinkCount, setTodayDrinkCount] = useState(3);
+  const [activeTab, setActiveTab] = useState("tracker");
 
-  const periods = [
-    { id: "period-1", name: "Period 1" },
-    { id: "period-2", name: "Period 2" },
-    { id: "period-3", name: "Period 3" },
+  const [periods, setPeriods] = useState([
+    { id: "period-1", name: "Period 1", startDate: "2025-10-01", endDate: "2025-10-05" },
+    { id: "period-2", name: "Period 2", startDate: "2025-10-08", endDate: "2025-10-12" },
+    { id: "period-3", name: "Period 3", startDate: "2025-10-15", endDate: "2025-10-19" },
+  ]);
+
+  const weekData = [
+    {
+      day: "Mon",
+      date: "Oct 7",
+      drinks: [
+        { name: "Coffee", count: 2 },
+        { name: "Sweet Tea", count: 1 },
+      ],
+    },
+    {
+      day: "Tue",
+      date: "Oct 8",
+      drinks: [
+        { name: "Coffee", count: 3 },
+        { name: "Coke", count: 1 },
+      ],
+    },
+    {
+      day: "Wed",
+      date: "Oct 9",
+      drinks: [
+        { name: "Coffee", count: 1 },
+      ],
+    },
+    {
+      day: "Thu",
+      date: "Oct 10",
+      drinks: [
+        { name: "Coffee", count: 2 },
+        { name: "Energy Drink", count: 1 },
+        { name: "Coke", count: 2 },
+      ],
+    },
+    {
+      day: "Fri",
+      date: "Oct 11",
+      drinks: [
+        { name: "Coffee", count: 1 },
+      ],
+    },
   ];
 
   const dailyData = [
@@ -52,7 +100,7 @@ export default function Home() {
   ];
 
   const reportData = {
-    periodName: periods.find(p => p.id === selectedPeriod)?.name || "Period 1",
+    periodName: periods.find((p) => p.id === selectedPeriod)?.name || "Period 1",
     startDate: new Date("2025-10-01"),
     endDate: new Date("2025-10-05"),
     totalCaffeine: 1425,
@@ -75,6 +123,7 @@ export default function Home() {
 
   const handleDrinkLog = (drinkName: string, caffeineAmount: number) => {
     console.log(`Logged ${drinkName} with ${caffeineAmount}mg caffeine`);
+    setTodayDrinkCount((prev) => prev + 1);
     toast({
       title: "Drink logged!",
       description: `${drinkName} (${caffeineAmount}mg) added to your tracker.`,
@@ -87,6 +136,34 @@ export default function Home() {
       setCustomDrinkDialogOpen(false);
       setCustomDrink({ name: "", caffeine: "" });
     }
+  };
+
+  const handleAddPeriod = (period: Omit<typeof periods[0], 'id'>) => {
+    const newPeriod = { ...period, id: `period-${Date.now()}` };
+    setPeriods([...periods, newPeriod]);
+    console.log("Added period:", newPeriod);
+    toast({
+      title: "Period added!",
+      description: `${period.name} has been created.`,
+    });
+  };
+
+  const handleEditPeriod = (id: string, period: Omit<typeof periods[0], 'id'>) => {
+    setPeriods(periods.map((p) => (p.id === id ? { ...period, id } : p)));
+    console.log("Edited period:", id, period);
+    toast({
+      title: "Period updated!",
+      description: `${period.name} has been updated.`,
+    });
+  };
+
+  const handleDeletePeriod = (id: string) => {
+    setPeriods(periods.filter((p) => p.id !== id));
+    console.log("Deleted period:", id);
+    toast({
+      title: "Period deleted!",
+      description: "The period has been removed.",
+    });
   };
 
   return (
@@ -109,73 +186,114 @@ export default function Home() {
             </div>
           </div>
           <div className="mt-4">
-            <PeriodSelector
-              periods={periods}
-              selectedPeriodId={selectedPeriod}
-              onPeriodChange={setSelectedPeriod}
-            />
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList>
+                <TabsTrigger value="tracker" data-testid="tab-tracker">
+                  Tracker
+                </TabsTrigger>
+                <TabsTrigger value="manage-periods" data-testid="tab-manage-periods">
+                  <Settings className="h-4 w-4 mr-2" />
+                  Manage Periods
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
           </div>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-8">
-        <section className="mb-8">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold">Quick Log</h2>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCustomDrinkDialogOpen(true)}
-              data-testid="button-add-custom-drink"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Custom Drink
-            </Button>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {COMMON_DRINKS.map((drink) => (
-              <DrinkButton
-                key={drink.name}
-                name={drink.name}
-                caffeineAmount={drink.caffeineAmount}
-                icon={drink.icon}
-                onClick={() => handleDrinkLog(drink.name, drink.caffeineAmount)}
+        {activeTab === "tracker" && (
+          <>
+            <div className="mb-4">
+              <PeriodSelector
+                periods={periods.map(p => ({ id: p.id, name: p.name }))}
+                selectedPeriodId={selectedPeriod}
+                onPeriodChange={setSelectedPeriod}
               />
-            ))}
-          </div>
-        </section>
+            </div>
 
-        <section className="mb-8">
-          <h2 className="text-xl font-semibold mb-6">Statistics</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <StatCard
-              title="Total Caffeine"
-              value="1,425mg"
-              subtitle="This period"
-              icon={TrendingUp}
-              variant="default"
-            />
-            <StatCard
-              title="Avg Drinks/Day"
-              value="3.2"
-              subtitle="Across 5 days"
-              icon={Coffee}
-              variant="success"
-            />
-            <StatCard
-              title="Daily Average"
-              value="285mg"
-              subtitle="Per day"
-              icon={Calendar}
-              variant="default"
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+              <div className="lg:col-span-2">
+                <section className="mb-8">
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-xl font-semibold">Quick Log</h2>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCustomDrinkDialogOpen(true)}
+                      data-testid="button-add-custom-drink"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Custom Drink
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {COMMON_DRINKS.map((drink) => (
+                      <DrinkButton
+                        key={drink.name}
+                        name={drink.name}
+                        caffeineAmount={drink.caffeineAmount}
+                        icon={drink.icon}
+                        onClick={() => handleDrinkLog(drink.name, drink.caffeineAmount)}
+                      />
+                    ))}
+                  </div>
+                </section>
+
+                <section className="mb-8">
+                  <WeekCalendarView weekData={weekData} />
+                </section>
+              </div>
+
+              <div>
+                <CaffeineMeter currentDrinks={todayDrinkCount} maxDrinks={10} />
+              </div>
+            </div>
+
+            <section className="mb-8">
+              <h2 className="text-xl font-semibold mb-6">Statistics</h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <StatCard
+                  title="Total Caffeine"
+                  value="1,425mg"
+                  subtitle="This period"
+                  icon={TrendingUp}
+                  variant="default"
+                />
+                <StatCard
+                  title="Avg Drinks/Day"
+                  value="3.2"
+                  subtitle="Across 5 days"
+                  icon={Coffee}
+                  variant="success"
+                />
+                <StatCard
+                  title="Daily Average"
+                  value="285mg"
+                  subtitle="Per day"
+                  icon={Calendar}
+                  variant="default"
+                />
+              </div>
+            </section>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <DailyIntakeChart data={dailyData} />
+              <DrinkHistoryList entries={historyEntries} />
+            </div>
+          </>
+        )}
+
+        {activeTab === "manage-periods" && (
+          <div className="max-w-3xl mx-auto">
+            <PeriodManagement
+              periods={periods}
+              onAddPeriod={handleAddPeriod}
+              onEditPeriod={handleEditPeriod}
+              onDeletePeriod={handleDeletePeriod}
             />
           </div>
-        </section>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <DailyIntakeChart data={dailyData} />
-          <DrinkHistoryList entries={historyEntries} />
-        </div>
+        )}
       </main>
 
       <Dialog open={customDrinkDialogOpen} onOpenChange={setCustomDrinkDialogOpen}>
