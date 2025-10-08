@@ -23,12 +23,14 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { Period, DrinkEntry, InsertPeriod, InsertDrinkEntry } from "@shared/schema";
 import { useState } from "react";
 
-const COMMON_DRINKS = [
+const DEFAULT_DRINKS = [
   { name: "Coffee", caffeineAmount: 95, icon: "coffee" as const },
   { name: "Sweet Tea", caffeineAmount: 47, icon: "tea" as const },
   { name: "Coke", caffeineAmount: 34, icon: "soda" as const },
   { name: "Energy Drink", caffeineAmount: 80, icon: "soda" as const },
 ];
+
+type DrinkConfig = typeof DEFAULT_DRINKS[number];
 
 export default function Home() {
   const { toast } = useToast();
@@ -36,8 +38,20 @@ export default function Home() {
 
   const [selectedPeriodId, setSelectedPeriodId] = useState<string>("");
   const [customDrinkDialogOpen, setCustomDrinkDialogOpen] = useState(false);
-  const [customDrink, setCustomDrink] = useState({ name: "", caffeine: "" });
+  const [customDrink, setCustomDrink] = useState({ 
+    name: "", 
+    caffeine: "", 
+    date: format(new Date(), 'yyyy-MM-dd'),
+    time: format(new Date(), 'HH:mm')
+  });
   const [activeTab, setActiveTab] = useState("tracker");
+  const [quickDrinks, setQuickDrinks] = useState<DrinkConfig[]>(() => {
+    const saved = localStorage.getItem('quickDrinks');
+    return saved ? JSON.parse(saved) : DEFAULT_DRINKS;
+  });
+  const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
+  const [editingDrinkIndex, setEditingDrinkIndex] = useState<number | null>(null);
+  const [drinkFormData, setDrinkFormData] = useState({ name: "", caffeineAmount: "", icon: "coffee" as const });
 
   const { data: periods = [], isLoading: periodsLoading } = useQuery<Period[]>({
     queryKey: ["/api/periods"],
@@ -229,10 +243,29 @@ export default function Home() {
   };
 
   const handleCustomDrinkSubmit = () => {
-    if (customDrink.name && customDrink.caffeine) {
-      handleDrinkLog(customDrink.name, parseInt(customDrink.caffeine));
-      setCustomDrinkDialogOpen(false);
-      setCustomDrink({ name: "", caffeine: "" });
+    if (customDrink.name && customDrink.caffeine && selectedPeriod) {
+      const timestamp = new Date(`${customDrink.date}T${customDrink.time}`);
+      
+      createDrinkEntryMutation.mutate({
+        periodId: selectedPeriod.id,
+        drinkName: customDrink.name,
+        caffeineAmount: parseInt(customDrink.caffeine),
+        timestamp: timestamp.toISOString(),
+      }, {
+        onSuccess: () => {
+          toast({
+            title: "Drink logged!",
+            description: `${customDrink.name} (${customDrink.caffeine}mg) added for ${format(timestamp, 'MMM d, h:mm a')}.`,
+          });
+          setCustomDrinkDialogOpen(false);
+          setCustomDrink({ 
+            name: "", 
+            caffeine: "", 
+            date: format(new Date(), 'yyyy-MM-dd'),
+            time: format(new Date(), 'HH:mm')
+          });
+        },
+      });
     }
   };
 
@@ -319,8 +352,11 @@ export default function Home() {
                   Tracker
                 </TabsTrigger>
                 <TabsTrigger value="manage-periods" data-testid="tab-manage-periods">
-                  <Settings className="h-4 w-4 mr-2" />
                   Manage Periods
+                </TabsTrigger>
+                <TabsTrigger value="settings" data-testid="tab-settings">
+                  <Settings className="h-4 w-4 mr-2" />
+                  Settings
                 </TabsTrigger>
               </TabsList>
             </Tabs>
@@ -367,7 +403,7 @@ export default function Home() {
                         </Button>
                       </div>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        {COMMON_DRINKS.map((drink) => (
+                        {quickDrinks.map((drink: DrinkConfig) => (
                           <DrinkButton
                             key={drink.name}
                             name={drink.name}
@@ -443,6 +479,92 @@ export default function Home() {
             />
           </div>
         )}
+
+        {activeTab === "settings" && (
+          <div className="max-w-3xl mx-auto">
+            <h2 className="text-2xl font-semibold mb-6">Quick Log Drinks</h2>
+            <p className="text-muted-foreground mb-6">
+              Customize the drinks that appear on your quick-log buttons. Changes are saved automatically.
+            </p>
+            <div className="space-y-4">
+              {quickDrinks.map((drink, index) => (
+                <div key={index} className="flex items-center gap-4 p-4 rounded-md border" data-testid={`quick-drink-${index}`}>
+                  <div className="flex-1 grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor={`drink-name-${index}`}>Drink Name</Label>
+                      <Input
+                        id={`drink-name-${index}`}
+                        value={drink.name}
+                        onChange={(e) => {
+                          const updated = [...quickDrinks];
+                          updated[index] = { ...drink, name: e.target.value };
+                          setQuickDrinks(updated);
+                          localStorage.setItem('quickDrinks', JSON.stringify(updated));
+                        }}
+                        data-testid={`input-quick-drink-name-${index}`}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor={`drink-caffeine-${index}`}>Caffeine (mg)</Label>
+                      <Input
+                        id={`drink-caffeine-${index}`}
+                        type="number"
+                        value={drink.caffeineAmount}
+                        onChange={(e) => {
+                          const updated = [...quickDrinks];
+                          updated[index] = { ...drink, caffeineAmount: parseInt(e.target.value) || 0 };
+                          setQuickDrinks(updated);
+                          localStorage.setItem('quickDrinks', JSON.stringify(updated));
+                        }}
+                        data-testid={`input-quick-drink-caffeine-${index}`}
+                      />
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      const updated = quickDrinks.filter((_, i) => i !== index);
+                      setQuickDrinks(updated);
+                      localStorage.setItem('quickDrinks', JSON.stringify(updated));
+                    }}
+                    data-testid={`button-remove-quick-drink-${index}`}
+                  >
+                    ✕
+                  </Button>
+                </div>
+              ))}
+              {quickDrinks.length < 6 && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    const updated = [...quickDrinks, { name: "New Drink", caffeineAmount: 0, icon: "coffee" as const }];
+                    setQuickDrinks(updated);
+                    localStorage.setItem('quickDrinks', JSON.stringify(updated));
+                  }}
+                  data-testid="button-add-quick-drink"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Quick Drink
+                </Button>
+              )}
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setQuickDrinks(DEFAULT_DRINKS);
+                  localStorage.setItem('quickDrinks', JSON.stringify(DEFAULT_DRINKS));
+                  toast({
+                    title: "Reset to defaults",
+                    description: "Quick-log drinks have been reset to defaults.",
+                  });
+                }}
+                data-testid="button-reset-quick-drinks"
+              >
+                Reset to Defaults
+              </Button>
+            </div>
+          </div>
+        )}
       </main>
 
       <Dialog open={customDrinkDialogOpen} onOpenChange={setCustomDrinkDialogOpen}>
@@ -471,6 +593,28 @@ export default function Home() {
                 onChange={(e) => setCustomDrink({ ...customDrink, caffeine: e.target.value })}
                 data-testid="input-caffeine-amount"
               />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="drink-date">Date</Label>
+                <Input
+                  id="drink-date"
+                  type="date"
+                  value={customDrink.date}
+                  onChange={(e) => setCustomDrink({ ...customDrink, date: e.target.value })}
+                  data-testid="input-drink-date"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="drink-time">Time</Label>
+                <Input
+                  id="drink-time"
+                  type="time"
+                  value={customDrink.time}
+                  onChange={(e) => setCustomDrink({ ...customDrink, time: e.target.value })}
+                  data-testid="input-drink-time"
+                />
+              </div>
             </div>
             <Button
               className="w-full"

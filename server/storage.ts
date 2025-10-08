@@ -73,9 +73,22 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createDrinkEntry(insertEntry: InsertDrinkEntry): Promise<DrinkEntry> {
+    const values: any = {
+      periodId: insertEntry.periodId,
+      drinkName: insertEntry.drinkName,
+      caffeineAmount: insertEntry.caffeineAmount,
+    };
+    
+    // If timestamp is provided, use it; otherwise, use default (now)
+    if (insertEntry.timestamp) {
+      values.timestamp = typeof insertEntry.timestamp === 'string' 
+        ? new Date(insertEntry.timestamp) 
+        : insertEntry.timestamp;
+    }
+    
     const [entry] = await db
       .insert(drinkEntries)
-      .values(insertEntry)
+      .values(values)
       .returning();
     return entry;
   }
