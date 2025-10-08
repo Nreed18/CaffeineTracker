@@ -1,5 +1,6 @@
-import { type Period, type InsertPeriod, type DrinkEntry, type InsertDrinkEntry } from "@shared/schema";
-import { randomUUID } from "crypto";
+import { type Period, type InsertPeriod, type DrinkEntry, type InsertDrinkEntry, periods, drinkEntries } from "@shared/schema";
+import { db } from "./db";
+import { eq, desc } from "drizzle-orm";
 
 export interface IStorage {
   getPeriod(id: string): Promise<Period | undefined>;
@@ -14,79 +15,70 @@ export interface IStorage {
   createDrinkEntry(entry: InsertDrinkEntry): Promise<DrinkEntry>;
 }
 
-export class MemStorage implements IStorage {
-  private periods: Map<string, Period>;
-  private drinkEntries: Map<string, DrinkEntry>;
-
-  constructor() {
-    this.periods = new Map();
-    this.drinkEntries = new Map();
-  }
-
+export class DatabaseStorage implements IStorage {
   async getPeriod(id: string): Promise<Period | undefined> {
-    return this.periods.get(id);
+    const [period] = await db.select().from(periods).where(eq(periods.id, id));
+    return period || undefined;
   }
 
   async getAllPeriods(): Promise<Period[]> {
-    return Array.from(this.periods.values());
+    return await db.select().from(periods);
   }
 
   async createPeriod(insertPeriod: InsertPeriod): Promise<Period> {
-    const id = randomUUID();
-    const period: Period = {
-      id,
-      name: insertPeriod.name,
-      startDate: typeof insertPeriod.startDate === 'string' ? new Date(insertPeriod.startDate) : insertPeriod.startDate,
-      endDate: typeof insertPeriod.endDate === 'string' ? new Date(insertPeriod.endDate) : insertPeriod.endDate,
-    };
-    this.periods.set(id, period);
+    const [period] = await db
+      .insert(periods)
+      .values({
+        name: insertPeriod.name,
+        startDate: typeof insertPeriod.startDate === 'string' ? new Date(insertPeriod.startDate) : insertPeriod.startDate,
+        endDate: typeof insertPeriod.endDate === 'string' ? new Date(insertPeriod.endDate) : insertPeriod.endDate,
+      })
+      .returning();
     return period;
   }
 
   async updatePeriod(id: string, insertPeriod: InsertPeriod): Promise<Period | undefined> {
-    const existing = this.periods.get(id);
-    if (!existing) return undefined;
-    
-    const updated: Period = {
-      id,
-      name: insertPeriod.name,
-      startDate: typeof insertPeriod.startDate === 'string' ? new Date(insertPeriod.startDate) : insertPeriod.startDate,
-      endDate: typeof insertPeriod.endDate === 'string' ? new Date(insertPeriod.endDate) : insertPeriod.endDate,
-    };
-    this.periods.set(id, updated);
-    return updated;
+    const [period] = await db
+      .update(periods)
+      .set({
+        name: insertPeriod.name,
+        startDate: typeof insertPeriod.startDate === 'string' ? new Date(insertPeriod.startDate) : insertPeriod.startDate,
+        endDate: typeof insertPeriod.endDate === 'string' ? new Date(insertPeriod.endDate) : insertPeriod.endDate,
+      })
+      .where(eq(periods.id, id))
+      .returning();
+    return period || undefined;
   }
 
   async deletePeriod(id: string): Promise<boolean> {
-    return this.periods.delete(id);
+    const result = await db.delete(periods).where(eq(periods.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
   }
 
   async getDrinkEntry(id: string): Promise<DrinkEntry | undefined> {
-    return this.drinkEntries.get(id);
+    const [entry] = await db.select().from(drinkEntries).where(eq(drinkEntries.id, id));
+    return entry || undefined;
   }
 
   async getAllDrinkEntries(): Promise<DrinkEntry[]> {
-    return Array.from(this.drinkEntries.values()).sort(
-      (a, b) => b.timestamp.getTime() - a.timestamp.getTime()
-    );
+    return await db.select().from(drinkEntries).orderBy(desc(drinkEntries.timestamp));
   }
 
   async getDrinkEntriesByPeriod(periodId: string): Promise<DrinkEntry[]> {
-    return Array.from(this.drinkEntries.values()).filter(
-      (entry) => entry.periodId === periodId
-    );
+    return await db
+      .select()
+      .from(drinkEntries)
+      .where(eq(drinkEntries.periodId, periodId))
+      .orderBy(desc(drinkEntries.timestamp));
   }
 
   async createDrinkEntry(insertEntry: InsertDrinkEntry): Promise<DrinkEntry> {
-    const id = randomUUID();
-    const entry: DrinkEntry = {
-      ...insertEntry,
-      id,
-      timestamp: new Date(),
-    };
-    this.drinkEntries.set(id, entry);
+    const [entry] = await db
+      .insert(drinkEntries)
+      .values(insertEntry)
+      .returning();
     return entry;
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();

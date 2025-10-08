@@ -31,9 +31,12 @@ export const insertPeriodSchema = basePeriodSchema.extend({
   ),
 });
 
-export const insertDrinkEntrySchema = createInsertSchema(drinkEntries).omit({
+export const insertDrinkEntrySchema = createInsertSchema(drinkEntries, {
+  timestamp: z.union([z.string(), z.date()]).transform((val) => 
+    typeof val === 'string' ? new Date(val) : val
+  ).optional(),
+}).omit({
   id: true,
-  timestamp: true,
 });
 
 export type Period = typeof periods.$inferSelect;
