@@ -8,6 +8,7 @@ export const periods = pgTable("periods", {
   name: text("name").notNull(),
   startDate: timestamp("start_date").notNull(),
   endDate: timestamp("end_date").notNull(),
+  hidden: integer("hidden").notNull().default(0),
 });
 
 export const drinkEntries = pgTable("drink_entries", {

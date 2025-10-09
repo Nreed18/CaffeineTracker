@@ -39,6 +39,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch("/api/periods/:id/toggle-hidden", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { hidden } = req.body;
+      const period = await storage.togglePeriodHidden(id, hidden);
+      
+      if (!period) {
+        return res.status(404).json({ error: "Period not found" });
+      }
+      
+      res.json(period);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to toggle period visibility" });
+    }
+  });
+
   app.delete("/api/periods/:id", async (req, res) => {
     try {
       const { id } = req.params;

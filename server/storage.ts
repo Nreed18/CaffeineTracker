@@ -7,6 +7,7 @@ export interface IStorage {
   getAllPeriods(): Promise<Period[]>;
   createPeriod(period: InsertPeriod): Promise<Period>;
   updatePeriod(id: string, period: InsertPeriod): Promise<Period | undefined>;
+  togglePeriodHidden(id: string, hidden: boolean): Promise<Period | undefined>;
   deletePeriod(id: string): Promise<boolean>;
   
   getDrinkEntry(id: string): Promise<DrinkEntry | undefined>;
@@ -46,6 +47,15 @@ export class DatabaseStorage implements IStorage {
         startDate: typeof insertPeriod.startDate === 'string' ? new Date(insertPeriod.startDate) : insertPeriod.startDate,
         endDate: typeof insertPeriod.endDate === 'string' ? new Date(insertPeriod.endDate) : insertPeriod.endDate,
       })
+      .where(eq(periods.id, id))
+      .returning();
+    return period || undefined;
+  }
+
+  async togglePeriodHidden(id: string, hidden: boolean): Promise<Period | undefined> {
+    const [period] = await db
+      .update(periods)
+      .set({ hidden: hidden ? 1 : 0 })
       .where(eq(periods.id, id))
       .returning();
     return period || undefined;

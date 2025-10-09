@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Eye, EyeOff } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -11,12 +11,14 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 
 interface Period {
   id: string;
   name: string;
   startDate: string;
   endDate: string;
+  hidden?: number;
 }
 
 interface PeriodManagementProps {
@@ -24,6 +26,7 @@ interface PeriodManagementProps {
   onAddPeriod?: (period: Omit<Period, 'id'>) => void;
   onEditPeriod?: (id: string, period: Omit<Period, 'id'>) => void;
   onDeletePeriod?: (id: string) => void;
+  onToggleHidden?: (id: string, hidden: boolean) => void;
 }
 
 export function PeriodManagement({
@@ -31,14 +34,18 @@ export function PeriodManagement({
   onAddPeriod,
   onEditPeriod,
   onDeletePeriod,
+  onToggleHidden,
 }: PeriodManagementProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [showHidden, setShowHidden] = useState(false);
   const [editingPeriod, setEditingPeriod] = useState<Period | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     startDate: "",
     endDate: "",
   });
+
+  const displayedPeriods = showHidden ? periods : periods.filter(p => !p.hidden);
 
   const handleOpenDialog = (period?: Period) => {
     if (period) {
@@ -70,21 +77,32 @@ export function PeriodManagement({
       <Card data-testid="card-period-management">
         <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
           <CardTitle>Manage Periods</CardTitle>
-          <Button
-            size="sm"
-            onClick={() => handleOpenDialog()}
-            data-testid="button-add-period"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Period
-          </Button>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Label htmlFor="show-hidden" className="text-sm">Show hidden</Label>
+              <Switch
+                id="show-hidden"
+                checked={showHidden}
+                onCheckedChange={setShowHidden}
+                data-testid="switch-show-hidden"
+              />
+            </div>
+            <Button
+              size="sm"
+              onClick={() => handleOpenDialog()}
+              data-testid="button-add-period"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Period
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
-            {periods.map((period) => (
+            {displayedPeriods.map((period) => (
               <div
                 key={period.id}
-                className="flex items-center justify-between p-3 rounded-md bg-accent/50"
+                className={`flex items-center justify-between p-3 rounded-md ${period.hidden ? 'bg-muted/50 opacity-60' : 'bg-accent/50'}`}
                 data-testid={`period-item-${period.id}`}
               >
                 <div className="flex-1">
@@ -94,6 +112,15 @@ export function PeriodManagement({
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => onToggleHidden?.(period.id, !period.hidden)}
+                    title={period.hidden ? "Show period" : "Hide period"}
+                    data-testid={`button-toggle-hidden-${period.id}`}
+                  >
+                    {period.hidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                  </Button>
                   <Button
                     variant="ghost"
                     size="icon"

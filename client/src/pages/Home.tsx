@@ -100,6 +100,16 @@ export default function Home() {
     },
   });
 
+  const togglePeriodHiddenMutation = useMutation({
+    mutationFn: async ({ id, hidden }: { id: string; hidden: boolean }) => {
+      const res = await apiRequest("PATCH", `/api/periods/${id}/toggle-hidden`, { hidden });
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/periods"] });
+    },
+  });
+
   const createDrinkEntryMutation = useMutation({
     mutationFn: async (data: InsertDrinkEntry) => {
       const res = await apiRequest("POST", "/api/drink-entries", data);
@@ -125,8 +135,12 @@ export default function Home() {
 
   const todayDrinkCount = useMemo(() => {
     const today = startOfDay(new Date());
-    return drinkEntries.filter(entry => isSameDay(new Date(entry.timestamp), today)).length;
-  }, [drinkEntries]);
+    return drinkEntries.filter(entry => {
+      const matchesToday = isSameDay(new Date(entry.timestamp), today);
+      const matchesPeriod = selectedPeriod ? entry.periodId === selectedPeriod.id : true;
+      return matchesToday && matchesPeriod;
+    }).length;
+  }, [drinkEntries, selectedPeriod]);
 
   const weekData = useMemo(() => {
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
@@ -395,6 +409,17 @@ export default function Home() {
     });
   };
 
+  const handleTogglePeriodHidden = (id: string, hidden: boolean) => {
+    togglePeriodHiddenMutation.mutate({ id, hidden }, {
+      onSuccess: () => {
+        toast({
+          title: hidden ? "Period hidden" : "Period shown",
+          description: hidden ? "The period has been hidden from the selector." : "The period is now visible in the selector.",
+        });
+      },
+    });
+  };
+
   const isLoading = periodsLoading || entriesLoading;
 
   if (isLoading) {
@@ -603,10 +628,12 @@ export default function Home() {
                 name: p.name,
                 startDate: format(new Date(p.startDate), 'yyyy-MM-dd'),
                 endDate: format(new Date(p.endDate), 'yyyy-MM-dd'),
+                hidden: p.hidden,
               }))}
               onAddPeriod={handleAddPeriod}
               onEditPeriod={handleEditPeriod}
               onDeletePeriod={handleDeletePeriod}
+              onToggleHidden={handleTogglePeriodHidden}
             />
           </div>
         )}
