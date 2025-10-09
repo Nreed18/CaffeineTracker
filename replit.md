@@ -28,6 +28,8 @@ Preferred communication style: Simple, everyday language.
 - Local React state for UI-specific interactions
 - localStorage for persisting user preferences (quick-log drinks customization)
 - Custom hooks pattern for reusable logic (e.g., `useIsMobile`, `useTheme`)
+- **Period-isolated stats**: All statistics are filtered to only show data from the selected period
+- **Yearly aggregation**: Separate yearly stats automatically calculate totals across all periods for the current year
 
 **Design System:**
 - Custom color palette optimized for productivity and data visualization
