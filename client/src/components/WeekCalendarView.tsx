@@ -13,13 +13,14 @@ interface DayData {
 
 interface WeekCalendarViewProps {
   weekData: DayData[];
+  title?: string;
 }
 
-export function WeekCalendarView({ weekData }: WeekCalendarViewProps) {
+export function WeekCalendarView({ weekData, title = "This Week" }: WeekCalendarViewProps) {
   return (
     <Card data-testid="card-week-calendar">
       <CardHeader>
-        <CardTitle>This Week</CardTitle>
+        <CardTitle>{title}</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-5 gap-3">

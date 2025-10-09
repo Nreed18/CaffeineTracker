@@ -11,7 +11,8 @@ import { PeriodManagement } from "@/components/PeriodManagement";
 import { DailyIntakeChart } from "@/components/DailyIntakeChart";
 import { DrinkHistoryList } from "@/components/DrinkHistoryList";
 import { PrintableReport } from "@/components/PrintableReport";
-import { TrendingUp, Coffee, Calendar, Printer, Plus, Settings } from "lucide-react";
+import { BulkImportDialog } from "@/components/BulkImportDialog";
+import { TrendingUp, Coffee, Calendar, Printer, Plus, Settings, Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -38,6 +39,7 @@ export default function Home() {
 
   const [selectedPeriodId, setSelectedPeriodId] = useState<string>("");
   const [customDrinkDialogOpen, setCustomDrinkDialogOpen] = useState(false);
+  const [bulkImportDialogOpen, setBulkImportDialogOpen] = useState(false);
   const [customDrink, setCustomDrink] = useState({ 
     name: "", 
     caffeine: "", 
@@ -115,13 +117,17 @@ export default function Home() {
 
   const weekData = useMemo(() => {
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
-    const today = new Date();
+    
+    // Use the selected period's start date, or current date if no period
+    const referenceDate = selectedPeriod 
+      ? new Date(selectedPeriod.startDate)
+      : new Date();
     
     return days.map((day, index) => {
-      const date = new Date(today);
-      const dayOfWeek = today.getDay();
+      const date = new Date(referenceDate);
+      const dayOfWeek = referenceDate.getDay();
       const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-      date.setDate(today.getDate() - daysFromMonday + index);
+      date.setDate(referenceDate.getDate() - daysFromMonday + index);
       
       const dayEntries = drinkEntries.filter(entry => 
         isSameDay(new Date(entry.timestamp), date)
@@ -143,7 +149,7 @@ export default function Home() {
         drinks: drinkTallies,
       };
     });
-  }, [drinkEntries]);
+  }, [drinkEntries, selectedPeriod]);
 
   const dailyData = useMemo(() => {
     const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
@@ -252,6 +258,43 @@ export default function Home() {
         },
       });
     }
+  };
+
+  const handleBulkImport = async (entries: Array<{ drinkName: string; caffeineAmount: number; timestamp: Date }>) => {
+    if (!selectedPeriod) {
+      toast({
+        title: "No period selected",
+        description: "Please create a period first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const entry of entries) {
+      try {
+        await apiRequest("POST", "/api/drink-entries", {
+          periodId: selectedPeriod.id,
+          drinkName: entry.drinkName,
+          caffeineAmount: entry.caffeineAmount,
+          timestamp: entry.timestamp.toISOString(),
+        });
+        successCount++;
+      } catch (error) {
+        failCount++;
+        console.error("Failed to import entry:", entry, error);
+      }
+    }
+
+    queryClient.invalidateQueries({ queryKey: ["/api/drink-entries"] });
+
+    toast({
+      title: "Bulk import complete!",
+      description: `Successfully imported ${successCount} drink(s)${failCount > 0 ? `, ${failCount} failed` : ''}.`,
+      variant: failCount > 0 ? "destructive" : "default",
+    });
   };
 
   const handleAddPeriod = (period: { name: string; startDate: string; endDate: string }) => {
@@ -377,15 +420,26 @@ export default function Home() {
                     <section className="mb-8">
                       <div className="flex items-center justify-between mb-6">
                         <h2 className="text-xl font-semibold">Quick Log</h2>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setCustomDrinkDialogOpen(true)}
-                          data-testid="button-add-custom-drink"
-                        >
-                          <Plus className="h-4 w-4 mr-2" />
-                          Custom Drink
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setBulkImportDialogOpen(true)}
+                            data-testid="button-bulk-import"
+                          >
+                            <Upload className="h-4 w-4 mr-2" />
+                            Bulk Import
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCustomDrinkDialogOpen(true)}
+                            data-testid="button-add-custom-drink"
+                          >
+                            <Plus className="h-4 w-4 mr-2" />
+                            Custom Drink
+                          </Button>
+                        </div>
                       </div>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         {quickDrinks.map((drink: DrinkConfig) => (
@@ -612,6 +666,12 @@ export default function Home() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <BulkImportDialog
+        open={bulkImportDialogOpen}
+        onOpenChange={setBulkImportDialogOpen}
+        onImport={handleBulkImport}
+      />
 
       <div className="hidden">
         <PrintableReport ref={printRef} data={reportData} />
