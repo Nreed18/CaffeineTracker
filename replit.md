@@ -39,6 +39,8 @@ Preferred communication style: Simple, everyday language.
 
 **Key Features:**
 - Period-based tracking (users can create unlimited named tracking periods)
+- **Hide/archive periods** - Hide inactive periods from the selector while keeping data intact
+- **Horizontal scrolling period selector** - Smoothly scroll through many periods
 - Quick-log drink buttons with customizable preset caffeine amounts
 - Custom drink logging with date/time picker for backdating entries
 - **Bulk import via CSV** - Upload CSV files or paste data to import multiple drinks at once
@@ -46,7 +48,7 @@ Preferred communication style: Simple, everyday language.
 - Customizable quick-log drinks (stored in localStorage)
 - Real-time statistics and visualizations (meters, charts, calendars)
 - **Period-aware calendar view** - Monday-Friday calendar shows drinks from the selected period's week (not current week)
-- Daily caffeine meter (0-100%) with skull icon at maximum
+- **Period-specific caffeine meter** - Daily meter only counts drinks from the selected period
 - Printable reports using react-to-print library (landscape layout with weekly calendar)
 - Toast notifications for user feedback
 
@@ -63,7 +65,8 @@ Preferred communication style: Simple, everyday language.
 - Schema-first approach with Zod validation integrated via drizzle-zod
 
 **Data Models:**
-- `periods` table: Tracks time periods for caffeine monitoring (id, name, startDate, endDate)
+- `periods` table: Tracks time periods for caffeine monitoring (id, name, startDate, endDate, hidden)
+  - `hidden` field: Integer (0 or 1) to hide/archive periods from the selector
 - `drink_entries` table: Stores individual drink logs with caffeine amounts and timestamps (id, periodId, drinkName, caffeineAmount, timestamp)
 - UUID-based primary keys for scalability
 - Timestamps support both current time and backdated entries for importing history
@@ -75,7 +78,9 @@ Preferred communication style: Simple, everyday language.
 
 **API Endpoints:**
 - `GET/POST /api/periods` - Manage tracking periods
-- `PUT/DELETE /api/periods/:id` - Update/delete specific periods
+- `PUT /api/periods/:id` - Update a specific period
+- `PATCH /api/periods/:id/toggle-hidden` - Hide/show a period
+- `DELETE /api/periods/:id` - Delete a specific period
 - `GET/POST /api/drink-entries` - Log and retrieve drink entries
 - `DELETE /api/drink-entries/:id` - Delete a specific drink entry
 - `GET /api/drink-entries/period/:periodId` - Period-specific entries
