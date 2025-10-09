@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Coffee } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Coffee, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 
 interface DrinkHistoryItem {
@@ -12,9 +13,10 @@ interface DrinkHistoryItem {
 
 interface DrinkHistoryListProps {
   entries: DrinkHistoryItem[];
+  onDelete?: (id: string) => void;
 }
 
-export function DrinkHistoryList({ entries }: DrinkHistoryListProps) {
+export function DrinkHistoryList({ entries, onDelete }: DrinkHistoryListProps) {
   const groupedByDate = entries.reduce((acc, entry) => {
     const dateKey = format(entry.timestamp, "MMMM d, yyyy");
     if (!acc[dateKey]) {
@@ -41,22 +43,35 @@ export function DrinkHistoryList({ entries }: DrinkHistoryListProps) {
                   {items.map((item) => (
                     <div
                       key={item.id}
-                      className="flex items-center justify-between p-3 rounded-md bg-accent/50"
+                      className="flex items-center justify-between gap-3 p-3 rounded-md bg-accent/50"
                       data-testid={`history-item-${item.id}`}
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
                         <div className="rounded-full bg-primary/10 p-2">
                           <Coffee className="h-4 w-4 text-primary" />
                         </div>
-                        <div>
-                          <p className="font-medium text-sm">{item.drinkName}</p>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-sm truncate">{item.drinkName}</p>
                           <p className="text-xs text-muted-foreground">
                             {format(item.timestamp, "h:mm a")}
                           </p>
                         </div>
                       </div>
-                      <div className="text-sm font-semibold">
-                        {item.caffeineAmount}mg
+                      <div className="flex items-center gap-2">
+                        <div className="text-sm font-semibold">
+                          {item.caffeineAmount}mg
+                        </div>
+                        {onDelete && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => onDelete(item.id)}
+                            data-testid={`button-delete-${item.id}`}
+                            className="h-8 w-8"
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        )}
                       </div>
                     </div>
                   ))}

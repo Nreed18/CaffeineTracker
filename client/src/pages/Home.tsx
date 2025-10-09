@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useReactToPrint } from "react-to-print";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { format, startOfDay, isSameDay } from "date-fns";
+import { format, startOfDay, isSameDay, startOfWeek, addDays } from "date-fns";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { Period, DrinkEntry, InsertPeriod, InsertDrinkEntry } from "@shared/schema";
 import { useState } from "react";
@@ -110,6 +110,19 @@ export default function Home() {
     },
   });
 
+  const deleteDrinkEntryMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/drink-entries/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/drink-entries"] });
+      toast({
+        title: "Drink deleted",
+        description: "The drink entry has been removed.",
+      });
+    },
+  });
+
   const todayDrinkCount = useMemo(() => {
     const today = startOfDay(new Date());
     return drinkEntries.filter(entry => isSameDay(new Date(entry.timestamp), today)).length;
@@ -120,14 +133,14 @@ export default function Home() {
     
     // Use the selected period's start date, or current date if no period
     const referenceDate = selectedPeriod 
-      ? new Date(selectedPeriod.startDate)
-      : new Date();
+      ? startOfDay(new Date(selectedPeriod.startDate))
+      : startOfDay(new Date());
+    
+    // Find Monday of the week containing the reference date
+    const monday = startOfWeek(referenceDate, { weekStartsOn: 1 });
     
     return days.map((day, index) => {
-      const date = new Date(referenceDate);
-      const dayOfWeek = referenceDate.getDay();
-      const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-      date.setDate(referenceDate.getDate() - daysFromMonday + index);
+      const date = addDays(monday, index);
       
       const dayEntries = drinkEntries.filter(entry => 
         isSameDay(new Date(entry.timestamp), date)
@@ -493,10 +506,13 @@ export default function Home() {
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <DailyIntakeChart data={dailyData} />
-                  <DrinkHistoryList entries={drinkEntries.map(e => ({
-                    ...e,
-                    timestamp: new Date(e.timestamp),
-                  }))} />
+                  <DrinkHistoryList 
+                    entries={drinkEntries.map(e => ({
+                      ...e,
+                      timestamp: new Date(e.timestamp),
+                    }))}
+                    onDelete={(id) => deleteDrinkEntryMutation.mutate(id)}
+                  />
                 </div>
               </>
             )}

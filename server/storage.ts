@@ -13,6 +13,7 @@ export interface IStorage {
   getAllDrinkEntries(): Promise<DrinkEntry[]>;
   getDrinkEntriesByPeriod(periodId: string): Promise<DrinkEntry[]>;
   createDrinkEntry(entry: InsertDrinkEntry): Promise<DrinkEntry>;
+  deleteDrinkEntry(id: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -91,6 +92,11 @@ export class DatabaseStorage implements IStorage {
       .values(values)
       .returning();
     return entry;
+  }
+
+  async deleteDrinkEntry(id: string): Promise<boolean> {
+    const result = await db.delete(drinkEntries).where(eq(drinkEntries.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
   }
 }
 
