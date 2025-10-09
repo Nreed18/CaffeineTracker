@@ -39,11 +39,12 @@ Preferred communication style: Simple, everyday language.
 - Period-based tracking (users can create unlimited named tracking periods)
 - Quick-log drink buttons with customizable preset caffeine amounts
 - Custom drink logging with date/time picker for backdating entries
+- **Bulk import via CSV** - Upload CSV files or paste data to import multiple drinks at once
 - Customizable quick-log drinks (stored in localStorage)
 - Real-time statistics and visualizations (meters, charts, calendars)
-- Monday-Friday calendar view showing drink tallies
+- **Period-aware calendar view** - Monday-Friday calendar shows drinks from the selected period's week (not current week)
 - Daily caffeine meter (0-100%) with skull icon at maximum
-- Printable reports using react-to-print library
+- Printable reports using react-to-print library (landscape layout with weekly calendar)
 - Toast notifications for user feedback
 
 ### Backend Architecture
