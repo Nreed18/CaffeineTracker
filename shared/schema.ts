@@ -1,13 +1,13 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, timestamp, date } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 export const periods = pgTable("periods", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
-  startDate: timestamp("start_date").notNull(),
-  endDate: timestamp("end_date").notNull(),
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date").notNull(),
   hidden: integer("hidden").notNull().default(0),
 });
 
@@ -25,12 +25,8 @@ const basePeriodSchema = createInsertSchema(periods).omit({
 });
 
 export const insertPeriodSchema = basePeriodSchema.extend({
-  startDate: z.union([z.string(), z.date()]).transform((val) => 
-    typeof val === 'string' ? new Date(val) : val
-  ),
-  endDate: z.union([z.string(), z.date()]).transform((val) => 
-    typeof val === 'string' ? new Date(val) : val
-  ),
+  startDate: z.string().or(z.date()),
+  endDate: z.string().or(z.date()),
 });
 
 export const insertDrinkEntrySchema = createInsertSchema(drinkEntries, {

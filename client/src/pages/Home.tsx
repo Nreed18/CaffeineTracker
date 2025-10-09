@@ -145,13 +145,32 @@ export default function Home() {
   const weekData = useMemo(() => {
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
     
-    // Use the selected period's start date, or current date if no period
-    const referenceDate = selectedPeriod 
-      ? startOfDay(new Date(selectedPeriod.startDate))
-      : startOfDay(new Date());
+    // Calculate Monday of the week to show
+    let monday: Date;
     
-    // Find Monday of the week containing the reference date
-    const monday = startOfWeek(referenceDate, { weekStartsOn: 1 });
+    if (selectedPeriod) {
+      const periodStart = new Date(selectedPeriod.startDate);
+      const periodEnd = new Date(selectedPeriod.endDate);
+      
+      // Find the Monday-Friday week that best overlaps with the period
+      // Start by getting the Monday of the week containing the period start
+      const periodStartMonday = startOfWeek(periodStart, { weekStartsOn: 1 });
+      
+      // Check if period start is on weekend - if so, use next Monday
+      const periodStartDay = periodStart.getDay();
+      if (periodStartDay === 0 || periodStartDay === 6) {
+        // Weekend - find the next Monday
+        monday = periodStartDay === 0 
+          ? addDays(periodStart, 1) // Sunday -> Monday
+          : addDays(periodStart, 2); // Saturday -> Monday
+      } else {
+        // Weekday - use the Monday of this week
+        monday = periodStartMonday;
+      }
+    } else {
+      // No period selected - use current week
+      monday = startOfWeek(new Date(), { weekStartsOn: 1 });
+    }
     
     return days.map((day, index) => {
       const date = addDays(monday, index);
@@ -184,13 +203,24 @@ export default function Home() {
   const dailyData = useMemo(() => {
     const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
     
-    // Use the selected period's start date to determine the week
-    const referenceDate = selectedPeriod 
-      ? startOfDay(new Date(selectedPeriod.startDate))
-      : startOfDay(new Date());
+    // Calculate Monday of the week to show (same logic as weekData)
+    let monday: Date;
     
-    // Find Monday of the week containing the reference date
-    const monday = startOfWeek(referenceDate, { weekStartsOn: 1 });
+    if (selectedPeriod) {
+      const periodStart = new Date(selectedPeriod.startDate);
+      const periodStartMonday = startOfWeek(periodStart, { weekStartsOn: 1 });
+      
+      const periodStartDay = periodStart.getDay();
+      if (periodStartDay === 0 || periodStartDay === 6) {
+        monday = periodStartDay === 0 
+          ? addDays(periodStart, 1)
+          : addDays(periodStart, 2);
+      } else {
+        monday = periodStartMonday;
+      }
+    } else {
+      monday = startOfWeek(new Date(), { weekStartsOn: 1 });
+    }
     
     return days.map((day, index) => {
       const date = addDays(monday, index);
