@@ -142,9 +142,12 @@ export default function Home() {
     return days.map((day, index) => {
       const date = addDays(monday, index);
       
-      const dayEntries = drinkEntries.filter(entry => 
-        isSameDay(new Date(entry.timestamp), date)
-      );
+      // Filter drinks by both date AND period
+      const dayEntries = drinkEntries.filter(entry => {
+        const matchesDate = isSameDay(new Date(entry.timestamp), date);
+        const matchesPeriod = selectedPeriod ? entry.periodId === selectedPeriod.id : true;
+        return matchesDate && matchesPeriod;
+      });
       
       const drinkTallies = dayEntries.reduce((acc, entry) => {
         const existing = acc.find(d => d.name === entry.drinkName);
@@ -166,17 +169,24 @@ export default function Home() {
 
   const dailyData = useMemo(() => {
     const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-    const today = new Date();
+    
+    // Use the selected period's start date to determine the week
+    const referenceDate = selectedPeriod 
+      ? startOfDay(new Date(selectedPeriod.startDate))
+      : startOfDay(new Date());
+    
+    // Find Monday of the week containing the reference date
+    const monday = startOfWeek(referenceDate, { weekStartsOn: 1 });
     
     return days.map((day, index) => {
-      const date = new Date(today);
-      const dayOfWeek = today.getDay();
-      const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-      date.setDate(today.getDate() - daysFromMonday + index);
+      const date = addDays(monday, index);
       
-      const dayEntries = drinkEntries.filter(entry => 
-        isSameDay(new Date(entry.timestamp), date)
-      );
+      // Filter drinks by both date AND period
+      const dayEntries = drinkEntries.filter(entry => {
+        const matchesDate = isSameDay(new Date(entry.timestamp), date);
+        const matchesPeriod = selectedPeriod ? entry.periodId === selectedPeriod.id : true;
+        return matchesDate && matchesPeriod;
+      });
       
       const totalCaffeine = dayEntries.reduce((sum, entry) => sum + entry.caffeineAmount, 0);
       
@@ -185,7 +195,7 @@ export default function Home() {
         caffeine: totalCaffeine,
       };
     });
-  }, [drinkEntries]);
+  }, [drinkEntries, selectedPeriod]);
 
   const stats = useMemo(() => {
     // Filter entries to only include those from the selected period
