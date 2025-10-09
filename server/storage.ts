@@ -34,6 +34,7 @@ export class DatabaseStorage implements IStorage {
         name: insertPeriod.name,
         startDate: typeof insertPeriod.startDate === 'string' ? new Date(insertPeriod.startDate) : insertPeriod.startDate,
         endDate: typeof insertPeriod.endDate === 'string' ? new Date(insertPeriod.endDate) : insertPeriod.endDate,
+        hidden: 0,
       })
       .returning();
     return period;
