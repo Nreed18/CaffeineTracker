@@ -188,7 +188,11 @@ export default function Home() {
   }, [drinkEntries]);
 
   const stats = useMemo(() => {
-    const periodEntries = drinkEntries;
+    // Filter entries to only include those from the selected period
+    const periodEntries = selectedPeriod 
+      ? drinkEntries.filter(entry => entry.periodId === selectedPeriod.id)
+      : drinkEntries;
+    
     const totalCaffeine = periodEntries.reduce((sum, entry) => sum + entry.caffeineAmount, 0);
     const totalDrinks = periodEntries.length;
     
@@ -200,6 +204,32 @@ export default function Home() {
     const avgCaffeinePerDay = uniqueDays > 0 ? totalCaffeine / uniqueDays : 0;
     
     return {
+      totalCaffeine,
+      totalDrinks,
+      avgDrinksPerDay,
+      avgCaffeinePerDay,
+    };
+  }, [drinkEntries, selectedPeriod]);
+
+  const yearlyStats = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const yearEntries = drinkEntries.filter(entry => {
+      const entryYear = new Date(entry.timestamp).getFullYear();
+      return entryYear === currentYear;
+    });
+    
+    const totalCaffeine = yearEntries.reduce((sum, entry) => sum + entry.caffeineAmount, 0);
+    const totalDrinks = yearEntries.length;
+    
+    const uniqueDays = new Set(
+      yearEntries.map(entry => format(startOfDay(new Date(entry.timestamp)), 'yyyy-MM-dd'))
+    ).size;
+    
+    const avgDrinksPerDay = uniqueDays > 0 ? totalDrinks / uniqueDays : 0;
+    const avgCaffeinePerDay = uniqueDays > 0 ? totalCaffeine / uniqueDays : 0;
+    
+    return {
+      year: currentYear,
       totalCaffeine,
       totalDrinks,
       avgDrinksPerDay,
@@ -219,7 +249,7 @@ export default function Home() {
   }), [selectedPeriod, stats, weekData]);
 
   const handlePrint = useReactToPrint({
-    contentRef: printRef,
+    content: () => printRef.current,
   });
 
   const handleDrinkLog = (drinkName: string, caffeineAmount: number) => {
@@ -478,7 +508,7 @@ export default function Home() {
                 </div>
 
                 <section className="mb-8">
-                  <h2 className="text-xl font-semibold mb-6">Statistics</h2>
+                  <h2 className="text-xl font-semibold mb-6">Period Statistics</h2>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <StatCard
                       title="Total Caffeine"
@@ -504,13 +534,49 @@ export default function Home() {
                   </div>
                 </section>
 
+                <section className="mb-8">
+                  <h2 className="text-xl font-semibold mb-6">Yearly Statistics ({yearlyStats.year})</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <StatCard
+                      title="Total Caffeine"
+                      value={`${yearlyStats.totalCaffeine.toLocaleString()}mg`}
+                      subtitle={`All of ${yearlyStats.year}`}
+                      icon={TrendingUp}
+                      variant="default"
+                    />
+                    <StatCard
+                      title="Total Drinks"
+                      value={yearlyStats.totalDrinks.toLocaleString()}
+                      subtitle="This year"
+                      icon={Coffee}
+                      variant="success"
+                    />
+                    <StatCard
+                      title="Avg Drinks/Day"
+                      value={yearlyStats.avgDrinksPerDay.toFixed(1)}
+                      subtitle="Per day"
+                      icon={Coffee}
+                      variant="success"
+                    />
+                    <StatCard
+                      title="Daily Average"
+                      value={`${Math.round(yearlyStats.avgCaffeinePerDay)}mg`}
+                      subtitle="Per day"
+                      icon={Calendar}
+                      variant="default"
+                    />
+                  </div>
+                </section>
+
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <DailyIntakeChart data={dailyData} />
                   <DrinkHistoryList 
-                    entries={drinkEntries.map(e => ({
-                      ...e,
-                      timestamp: new Date(e.timestamp),
-                    }))}
+                    entries={drinkEntries
+                      .filter(e => selectedPeriod ? e.periodId === selectedPeriod.id : true)
+                      .map(e => ({
+                        ...e,
+                        timestamp: new Date(e.timestamp),
+                      }))}
                     onDelete={(id) => deleteDrinkEntryMutation.mutate(id)}
                   />
                 </div>
