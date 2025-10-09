@@ -21,6 +21,7 @@ export const drinkEntries = pgTable("drink_entries", {
 
 const basePeriodSchema = createInsertSchema(periods).omit({
   id: true,
+  hidden: true,
 });
 
 export const insertPeriodSchema = basePeriodSchema.extend({
