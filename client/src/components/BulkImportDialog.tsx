@@ -25,10 +25,14 @@ export function BulkImportDialog({ open, onOpenChange, onImport }: BulkImportDia
       return;
     }
 
-    const header = lines[0].toLowerCase().trim();
-    const validHeaders = ["drinkname,caffeineamount,date,time", "drink,caffeine,date,time", "drink name,caffeine amount,date,time"];
+    const header = lines[0].toLowerCase().trim().replace(/\s+/g, '');
+    const validHeaders = [
+      "drinkname,caffeineamount,date,time",
+      "drink,caffeine,date,time",
+      "drinkname,caffeine,date,time"
+    ];
     
-    if (!validHeaders.some(h => header.replace(/\s+/g, '').includes(h.replace(/,/g, '')))) {
+    if (!validHeaders.includes(header)) {
       setError("CSV must have headers: drinkName, caffeineAmount, date, time (or variations)");
       setPreview([]);
       return;
