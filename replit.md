@@ -8,6 +8,18 @@ This is a full-stack caffeine tracking application that allows users to monitor 
 
 Preferred communication style: Simple, everyday language.
 
+## Ubuntu Deployment
+
+This application is designed to be **self-hosted on Ubuntu servers** with Cloudflare Tunnels for secure internet access. See `UBUNTU_DEPLOYMENT.md` for complete deployment instructions.
+
+**Key Features for Self-Hosting:**
+- Runs on Node.js 20+ (Ubuntu compatible)
+- Uses standard PostgreSQL database (not cloud-specific)
+- Systemd service configuration included
+- Cloudflare Tunnel integration for secure public access
+- Production build command: `npm run build && npm start`
+- Environment variables via `.env` file (see `.env.example`)
+
 ## System Architecture
 
 ### Frontend Architecture
