@@ -40,6 +40,7 @@ Preferred communication style: Simple, everyday language.
 - Quick-log drink buttons with customizable preset caffeine amounts
 - Custom drink logging with date/time picker for backdating entries
 - **Bulk import via CSV** - Upload CSV files or paste data to import multiple drinks at once
+- **Delete drinks** - Remove accidentally added drinks with trash icon button in Recent History
 - Customizable quick-log drinks (stored in localStorage)
 - Real-time statistics and visualizations (meters, charts, calendars)
 - **Period-aware calendar view** - Monday-Friday calendar shows drinks from the selected period's week (not current week)
@@ -74,6 +75,7 @@ Preferred communication style: Simple, everyday language.
 - `GET/POST /api/periods` - Manage tracking periods
 - `PUT/DELETE /api/periods/:id` - Update/delete specific periods
 - `GET/POST /api/drink-entries` - Log and retrieve drink entries
+- `DELETE /api/drink-entries/:id` - Delete a specific drink entry
 - `GET /api/drink-entries/period/:periodId` - Period-specific entries
 
 ### Development Environment
