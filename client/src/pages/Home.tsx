@@ -294,15 +294,16 @@ export default function Home() {
 
   const reportData = useMemo(() => {
     // Parse dates as local dates to avoid timezone issues
-    const parseLocalDate = (dateStr: string) => {
+    const parseLocalDate = (dateStr: string | null) => {
+      if (!dateStr) return new Date();
       const [year, month, day] = dateStr.split('-').map(Number);
       return new Date(year, month - 1, day);
     };
 
     return {
       periodName: selectedPeriod?.name || "All Time",
-      startDate: selectedPeriod ? parseLocalDate(selectedPeriod.startDate) : new Date(),
-      endDate: selectedPeriod ? parseLocalDate(selectedPeriod.endDate) : new Date(),
+      startDate: selectedPeriod?.startDate ? parseLocalDate(selectedPeriod.startDate) : new Date(),
+      endDate: selectedPeriod?.endDate ? parseLocalDate(selectedPeriod.endDate) : new Date(),
       totalCaffeine: stats.totalCaffeine,
       totalDrinks: stats.totalDrinks,
       avgDrinksPerDay: stats.avgDrinksPerDay,
