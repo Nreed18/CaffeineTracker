@@ -1,498 +1,213 @@
-# Caffeine Tracker - Ubuntu Deployment Guide
+# Caffeine Tracker
 
-This guide will walk you through deploying the Caffeine Tracker application on your own Ubuntu server and exposing it to the internet using Cloudflare Tunnels.
+A modern web application for tracking caffeine intake across different time periods. Monitor your daily caffeine consumption, visualize patterns, and generate printable reports.
 
-## Prerequisites
+![Caffeine Tracker Screenshot](screenshot.png)
 
-- Ubuntu 20.04 or later
-- Root or sudo access
-- A Cloudflare account (free tier works)
-- A domain managed by Cloudflare (optional, but recommended)
+## Features
 
-## Step 1: Update System
+- **Period Management**: Create and manage different tracking periods (weeks, months, custom ranges)
+- **Quick Log**: Fast logging with customizable drink buttons
+- **Custom Entries**: Add custom drinks with specific caffeine amounts and timestamps
+- **Bulk Import**: Import multiple drink entries at once via CSV-style input
+- **Visual Analytics**:
+  - Daily intake charts with bar graphs
+  - Weekly calendar view showing drink tallies
+  - Caffeine meter with daily intake visualization
+  - Statistics dashboard with averages and totals
+- **Printable Reports**: Generate printer-friendly reports for any period
+- **Period Hiding**: Hide periods from the selector while preserving data
+- **Responsive Design**: Works seamlessly on desktop and mobile devices
+- **Dark Mode**: Built-in theme toggle for comfortable viewing
 
-```bash
-sudo apt update
-sudo apt upgrade -y
-```
+## Tech Stack
 
-## Step 2: Install Node.js 20
+- **Frontend**: React 18, TypeScript, TailwindCSS
+- **Backend**: Express.js, Node.js
+- **Database**: PostgreSQL with Drizzle ORM
+- **UI Components**: Radix UI primitives, shadcn/ui design system
+- **Data Fetching**: TanStack Query (React Query)
+- **Charts**: Recharts
+- **Date Handling**: date-fns
+- **Routing**: Wouter
+- **Build Tools**: Vite, esbuild
 
-```bash
-# Install Node.js 20 using NodeSource repository
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt install -y nodejs
+## Quick Start
 
-# Verify installation
-node --version  # Should show v20.x.x
-npm --version
-```
+### Prerequisites
 
-## Step 3: Install PostgreSQL
+- Node.js 20.x or newer
+- PostgreSQL 14+ installed and running
 
-```bash
-# Install PostgreSQL
-sudo apt install -y postgresql postgresql-contrib
+### Local Development Setup
 
-# Start and enable PostgreSQL
-sudo systemctl start postgresql
-sudo systemctl enable postgresql
-
-# Create database and user
-sudo -u postgres psql << EOF
-CREATE DATABASE caffeine_tracker;
-CREATE USER caffeine_user WITH PASSWORD 'your_secure_password_here';
-GRANT ALL PRIVILEGES ON DATABASE caffeine_tracker TO caffeine_user;
-\c caffeine_tracker
-GRANT ALL ON SCHEMA public TO caffeine_user;
-EOF
-```
-
-## Step 4: Set Up Application
-
-```bash
-# Create application directory
-sudo mkdir -p /opt/caffeine-tracker
-sudo chown $USER:$USER /opt/caffeine-tracker
-cd /opt/caffeine-tracker
-
-# Copy your application files here
-# (You can use git clone, scp, or rsync to transfer files)
-# Example with git:
-# git clone <your-repo-url> .
-
-# Or if uploading manually, copy all project files to /opt/caffeine-tracker
-
-# IMPORTANT: Verify your application directory structure
-# The package.json should be in the current directory
-ls package.json
-
-# If your app is in a subdirectory (e.g., /opt/caffeine-tracker/CaffeineTracker/),
-# you need to cd into that directory:
-# cd CaffeineTracker
-```
-
-## Step 5: Install Dependencies
-
-```bash
-# Make sure you're in the directory with package.json
-# If in subdirectory: cd /opt/caffeine-tracker/CaffeineTracker
-cd /opt/caffeine-tracker
-
-npm install
-```
-
-## Step 6: Configure Environment Variables
-
-```bash
-# Create .env file in the SAME directory as package.json
-# This is crucial - the .env must be in your app's root directory
-
-# If your app is in /opt/caffeine-tracker:
-nano /opt/caffeine-tracker/.env
-
-# If your app is in a subdirectory like /opt/caffeine-tracker/CaffeineTracker:
-# nano /opt/caffeine-tracker/CaffeineTracker/.env
-```
-
-Add the following content (replace with your actual values):
-
-```env
-# Database Configuration
-DATABASE_URL=postgresql://caffeine_user:your_secure_password_here@localhost:5432/caffeine_tracker
-PGHOST=localhost
-PGPORT=5432
-PGUSER=caffeine_user
-PGPASSWORD=your_secure_password_here
-PGDATABASE=caffeine_tracker
-
-# Session Secret (generate a random string)
-SESSION_SECRET=your_random_session_secret_here_min_32_chars
-
-# Node Environment
-NODE_ENV=production
-PORT=5000
-```
-
-To generate a secure session secret:
-```bash
-openssl rand -base64 32
-```
-
-## Step 7: Set Up Database Schema
-
-```bash
-# Run database migrations
-npm run db:push
-```
-
-## Step 8: Build Application
-
-```bash
-# Build the frontend and backend
-npm run build
-```
-
-## Step 9: Test Application
-
-```bash
-# Start the application
-npm run dev
-
-# In another terminal, test it
-curl http://localhost:5000
-```
-
-If it works, press Ctrl+C to stop it. Now let's set it up as a service.
-
-## Step 10: Create systemd Service
-
-```bash
-# Create service file
-sudo nano /etc/systemd/system/caffeine-tracker.service
-```
-
-Add the following content (adjust paths based on your setup):
-
-**IMPORTANT:** Replace the paths below based on your actual directory structure:
-- If your app is in `/opt/caffeine-tracker/` (package.json directly there), use the first example
-- If your app is in `/opt/caffeine-tracker/CaffeineTracker/` (in a subdirectory), use the second example
-
-**Option 1: App directly in /opt/caffeine-tracker**
-```ini
-[Unit]
-Description=Caffeine Tracker Application
-After=network.target postgresql.service
-
-[Service]
-Type=simple
-User=your_username
-WorkingDirectory=/opt/caffeine-tracker
-Environment=NODE_ENV=production
-EnvironmentFile=/opt/caffeine-tracker/.env
-ExecStart=/usr/bin/npm run dev
-Restart=always
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-```
-
-**Option 2: App in subdirectory /opt/caffeine-tracker/CaffeineTracker**
-```ini
-[Unit]
-Description=Caffeine Tracker Application
-After=network.target postgresql.service
-
-[Service]
-Type=simple
-User=your_username
-WorkingDirectory=/opt/caffeine-tracker/CaffeineTracker
-Environment=NODE_ENV=production
-EnvironmentFile=/opt/caffeine-tracker/CaffeineTracker/.env
-ExecStart=/usr/bin/npm run dev
-Restart=always
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Replace `your_username` with your actual Ubuntu username.
-
-To find your username: `whoami`
-To verify your app directory: `ls -la /opt/caffeine-tracker/package.json`
-
-```bash
-# Reload systemd, enable and start service
-sudo systemctl daemon-reload
-sudo systemctl enable caffeine-tracker
-sudo systemctl start caffeine-tracker
-
-# Check status
-sudo systemctl status caffeine-tracker
-
-# View logs
-sudo journalctl -u caffeine-tracker -f
-```
-
-## Step 11: Install Cloudflare Tunnel (cloudflared)
-
-```bash
-# Download and install cloudflared
-wget https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
-sudo dpkg -i cloudflared-linux-amd64.deb
-
-# Verify installation
-cloudflared --version
-```
-
-## Step 12: Authenticate Cloudflare Tunnel
-
-```bash
-# Login to Cloudflare (this will open a browser)
-cloudflared tunnel login
-```
-
-This will:
-1. Open your browser
-2. Ask you to select a domain
-3. Save credentials to `~/.cloudflared/cert.pem`
-
-## Step 13: Create Cloudflare Tunnel
-
-```bash
-# Create a tunnel (replace 'caffeine-tracker' with your preferred tunnel name)
-cloudflared tunnel create caffeine-tracker
-
-# Note the Tunnel ID from the output - you'll need it
-# It will also create credentials in ~/.cloudflared/<tunnel-id>.json
-```
-
-## Step 14: Configure Cloudflare Tunnel
-
-```bash
-# Create config directory if it doesn't exist
-sudo mkdir -p /etc/cloudflared
-
-# Create tunnel configuration
-sudo nano /etc/cloudflared/config.yml
-```
-
-Add the following content (replace values with your own):
-
-```yaml
-tunnel: <your-tunnel-id>
-credentials-file: /home/your_username/.cloudflared/<your-tunnel-id>.json
-
-ingress:
-  - hostname: caffeine.yourdomain.com
-    service: http://localhost:5000
-  - service: http_status:404
-```
-
-Replace:
-- `<your-tunnel-id>` with your tunnel ID from step 13
-- `your_username` with your Ubuntu username
-- `caffeine.yourdomain.com` with your desired subdomain
-
-## Step 15: Create DNS Record
-
-```bash
-# Create DNS record pointing to your tunnel
-cloudflared tunnel route dns caffeine-tracker caffeine.yourdomain.com
-```
-
-Replace `caffeine.yourdomain.com` with your desired domain.
-
-## Step 16: Install Cloudflare Tunnel as a Service
-
-```bash
-# Copy credentials to system location
-sudo cp ~/.cloudflared/<your-tunnel-id>.json /etc/cloudflared/
-
-# Install cloudflared as a service
-sudo cloudflared service install
-
-# Start the service
-sudo systemctl start cloudflared
-sudo systemctl enable cloudflared
-
-# Check status
-sudo systemctl status cloudflared
-```
-
-## Step 17: Verify Everything Works
-
-1. Check application is running:
-```bash
-sudo systemctl status caffeine-tracker
-```
-
-2. Check Cloudflare tunnel is running:
-```bash
-sudo systemctl status cloudflared
-```
-
-3. Visit your domain in a browser:
-```
-https://caffeine.yourdomain.com
-```
-
-Your application should now be accessible from the internet!
-
-## Firewall Configuration (Optional but Recommended)
-
-```bash
-# If using UFW firewall
-sudo ufw allow ssh
-sudo ufw enable
-
-# Note: You DON'T need to open port 5000 since Cloudflare Tunnel handles everything
-```
-
-## Maintenance Commands
-
-### View Application Logs
-```bash
-sudo journalctl -u caffeine-tracker -f
-```
-
-### View Cloudflare Tunnel Logs
-```bash
-sudo journalctl -u cloudflared -f
-```
-
-### Restart Application
-```bash
-sudo systemctl restart caffeine-tracker
-```
-
-### Restart Cloudflare Tunnel
-```bash
-sudo systemctl restart cloudflared
-```
-
-### Update Application
-```bash
-cd /opt/caffeine-tracker
-git pull  # If using git
-npm install
-npm run build
-sudo systemctl restart caffeine-tracker
-```
-
-### Database Backup
-```bash
-# Backup database
-sudo -u postgres pg_dump caffeine_tracker > backup_$(date +%Y%m%d).sql
-
-# Restore database
-sudo -u postgres psql caffeine_tracker < backup_20241008.sql
-```
-
-## Troubleshooting
-
-### Error: "DATABASE_URL must be set"
-
-This is the most common error. It means the .env file isn't in the right location or isn't being loaded.
-
-**Solution:**
-
-1. First, find where your app actually is:
-```bash
-# Find the directory with package.json
-find /opt/caffeine-tracker -name "package.json"
-```
-
-2. Check if .env exists in that directory:
-```bash
-# If app is in /opt/caffeine-tracker:
-ls -la /opt/caffeine-tracker/.env
-
-# If app is in /opt/caffeine-tracker/CaffeineTracker:
-ls -la /opt/caffeine-tracker/CaffeineTracker/.env
-```
-
-3. If .env is missing, create it in the correct location:
-```bash
-# Replace this path with your actual app directory
-cd /opt/caffeine-tracker/CaffeineTracker  # or /opt/caffeine-tracker
-
-# Create .env file
-nano .env
-```
-
-Add this content (replace with your actual values):
-```env
-DATABASE_URL=postgresql://caffeine_user:your_password@localhost:5432/caffeine_tracker
-PGHOST=localhost
-PGPORT=5432
-PGUSER=caffeine_user
-PGPASSWORD=your_password
-PGDATABASE=caffeine_tracker
-SESSION_SECRET=your_random_secret_here
-NODE_ENV=production
-PORT=5000
-```
-
-4. Update the systemd service to point to the correct paths:
-```bash
-sudo nano /etc/systemd/system/caffeine-tracker.service
-```
-
-Make sure `WorkingDirectory` and `EnvironmentFile` both point to the same directory where your package.json and .env are located.
-
-5. Reload and restart:
-```bash
-sudo systemctl daemon-reload
-sudo systemctl restart caffeine-tracker
-sudo systemctl status caffeine-tracker
-```
-
-### Application Won't Start
-```bash
-# Check logs
-sudo journalctl -u caffeine-tracker -n 50
-
-# Check if port 5000 is in use
-sudo lsof -i :5000
-
-# Test database connection
-psql -h localhost -U caffeine_user -d caffeine_tracker
-```
-
-### Cloudflare Tunnel Issues
-```bash
-# Check tunnel status
-sudo cloudflared tunnel info caffeine-tracker
-
-# Test tunnel connection
-sudo cloudflared tunnel run caffeine-tracker
-
-# Check DNS
-nslookup caffeine.yourdomain.com
-```
-
-### Database Connection Issues
-```bash
-# Check PostgreSQL is running
-sudo systemctl status postgresql
-
-# Check PostgreSQL logs
-sudo tail -f /var/log/postgresql/postgresql-*-main.log
-
-# Test connection
-psql -h localhost -U caffeine_user -d caffeine_tracker -c "SELECT 1;"
-```
-
-## Security Recommendations
-
-1. **Use strong passwords** for database and session secret
-2. **Keep system updated**: `sudo apt update && sudo apt upgrade`
-3. **Enable automatic security updates**:
+1. **Clone the repository**
    ```bash
-   sudo apt install unattended-upgrades
-   sudo dpkg-reconfigure -plow unattended-upgrades
+   git clone <your-repo-url>
+   cd CaffeineTracker
    ```
-4. **Regular backups**: Set up automated database backups
-5. **Monitor logs**: Regularly check application and system logs
-6. **Firewall**: Only expose necessary ports (SSH only, since Cloudflare Tunnel handles web traffic)
 
-## Additional Resources
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
 
-- [Cloudflare Tunnel Documentation](https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/)
-- [PostgreSQL Documentation](https://www.postgresql.org/docs/)
-- [Node.js Production Best Practices](https://nodejs.org/en/docs/guides/nodejs-docker-webapp/)
+3. **Set up PostgreSQL database**
+   ```bash
+   # Create database and user
+   sudo -u postgres psql << EOF
+   CREATE DATABASE caffeine_tracker;
+   CREATE USER caffeine_user WITH PASSWORD 'your_password';
+   GRANT ALL PRIVILEGES ON DATABASE caffeine_tracker TO caffeine_user;
+   \c caffeine_tracker
+   GRANT ALL ON SCHEMA public TO caffeine_user;
+   EOF
+   ```
+
+4. **Configure environment variables**
+
+   Create a `.env` file in the project root:
+   ```env
+   DATABASE_URL=postgresql://caffeine_user:your_password@localhost:5432/caffeine_tracker
+   PGHOST=localhost
+   PGPORT=5432
+   PGUSER=caffeine_user
+   PGPASSWORD=your_password
+   PGDATABASE=caffeine_tracker
+   SESSION_SECRET=your_random_session_secret_min_32_chars
+   NODE_ENV=development
+   PORT=5000
+   ```
+
+   Generate a secure session secret:
+   ```bash
+   openssl rand -base64 32
+   ```
+
+5. **Initialize database schema**
+   ```bash
+   npm run db:push
+   ```
+
+6. **Start development server**
+   ```bash
+   npm run dev
+   ```
+
+7. **Open your browser**
+
+   Navigate to `http://localhost:5000`
+
+## Development Commands
+
+- `npm run dev` - Start development server with hot reload
+- `npm run build` - Build frontend and backend for production
+- `npm run start` - Run production build
+- `npm run check` - Run TypeScript type checking
+- `npm run db:push` - Push database schema changes to PostgreSQL
+
+## Project Structure
+
+```
+CaffeineTracker/
+├── client/              # Frontend React application
+│   ├── src/
+│   │   ├── components/  # React components
+│   │   ├── hooks/       # Custom React hooks
+│   │   ├── lib/         # Utility functions and config
+│   │   └── pages/       # Page components
+│   └── index.html       # HTML entry point
+├── server/              # Backend Express application
+│   ├── index.ts         # Server entry point
+│   ├── routes.ts        # API routes
+│   └── storage.ts       # Database operations
+├── shared/              # Shared TypeScript types and schema
+│   └── schema.ts        # Drizzle ORM schema definitions
+└── db/                  # Database files (SQLite for local dev)
+```
+
+## Deployment
+
+For detailed production deployment instructions on Ubuntu servers with Cloudflare Tunnels, see [UBUNTU_DEPLOYMENT.md](UBUNTU_DEPLOYMENT.md).
+
+Quick deployment overview:
+1. Set up Ubuntu server with Node.js 20+ and PostgreSQL
+2. Clone repository and install dependencies
+3. Configure production environment variables
+4. Build application: `npm run build`
+5. Run with systemd service: `npm run start`
+6. Set up Cloudflare Tunnel for HTTPS access
+
+## Usage
+
+### Creating Periods
+
+1. Navigate to the "Manage Periods" tab
+2. Click "Add Period" and specify name, start date, and end date
+3. Periods appear in the selector dropdown
+
+### Logging Drinks
+
+**Quick Log**: Click any of the customizable drink buttons on the home screen
+
+**Custom Entry**:
+1. Click "Custom Drink"
+2. Enter drink name, caffeine amount, date, and time
+3. Submit to log
+
+**Bulk Import**:
+1. Click "Bulk Import"
+2. Paste CSV data with format: `Drink Name, Caffeine (mg), Date, Time`
+3. Submit to import all entries
+
+### Viewing Statistics
+
+- **Current Period Stats**: Displayed on the tracker tab for selected period
+- **Yearly Stats**: View in the stats tab for full year analytics
+- **Charts**: Daily intake bar chart and weekly calendar view
+- **Caffeine Meter**: Visual gauge showing today's intake
+
+### Customizing Quick Drinks
+
+1. Navigate to the "Settings" tab
+2. Edit existing drink names and caffeine amounts
+3. Add new drinks (up to 6 total)
+4. Remove drinks with the × button
+5. Reset to defaults if needed
+
+Changes are saved automatically to browser localStorage.
+
+## Data Management
+
+### Hiding Periods
+
+Hide periods from the dropdown selector without deleting data:
+1. Go to "Manage Periods" tab
+2. Toggle "Show hidden" switch to view hidden periods
+3. Click the eye icon to hide/show a period
+
+### Printing Reports
+
+1. Select a period from the dropdown
+2. Click the printer icon
+3. Review the printable report
+4. Use browser's print dialog to print or save as PDF
+
+## License
+
+MIT License - see package.json for details
 
 ## Support
 
-For issues specific to this application, check the application logs:
-```bash
-sudo journalctl -u caffeine-tracker -f
-```
+For issues or questions:
+- Check application logs in browser console
+- Review the troubleshooting section in [UBUNTU_DEPLOYMENT.md](UBUNTU_DEPLOYMENT.md) for deployment issues
+- Ensure all environment variables are correctly configured
 
-For Cloudflare Tunnel issues:
-```bash
-sudo journalctl -u cloudflared -f
-```
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature-name`
+3. Commit your changes: `git commit -am 'Add feature'`
+4. Push to the branch: `git push origin feature-name`
+5. Submit a pull request

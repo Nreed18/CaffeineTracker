@@ -9,6 +9,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const periods = await storage.getAllPeriods();
       res.json(periods);
     } catch (error) {
+      console.error("Error fetching periods:", error);
       res.status(500).json({ error: "Failed to fetch periods" });
     }
   });
@@ -19,6 +20,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const period = await storage.createPeriod(data);
       res.status(201).json(period);
     } catch (error) {
+      console.error("Error with period data:", error);
       res.status(400).json({ error: "Invalid period data" });
     }
   });
@@ -35,6 +37,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(period);
     } catch (error) {
+      console.error("Error with period data:", error);
       res.status(400).json({ error: "Invalid period data" });
     }
   });
@@ -43,14 +46,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const { hidden } = req.body;
+
+      // Validate hidden is a boolean
+      if (typeof hidden !== 'boolean') {
+        return res.status(400).json({ error: "Hidden must be a boolean value" });
+      }
+
       const period = await storage.togglePeriodHidden(id, hidden);
-      
+
       if (!period) {
         return res.status(404).json({ error: "Period not found" });
       }
-      
+
       res.json(period);
     } catch (error) {
+      console.error("Error toggling period visibility:", error);
       res.status(500).json({ error: "Failed to toggle period visibility" });
     }
   });
@@ -66,6 +76,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.status(204).send();
     } catch (error) {
+      console.error("Error deleting period:", error);
       res.status(500).json({ error: "Failed to delete period" });
     }
   });
@@ -75,6 +86,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const entries = await storage.getAllDrinkEntries();
       res.json(entries);
     } catch (error) {
+      console.error("Error fetching drink entries:", error);
       res.status(500).json({ error: "Failed to fetch drink entries" });
     }
   });
@@ -85,6 +97,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const entries = await storage.getDrinkEntriesByPeriod(periodId);
       res.json(entries);
     } catch (error) {
+      console.error("Error fetching drink entries:", error);
       res.status(500).json({ error: "Failed to fetch drink entries" });
     }
   });
@@ -95,6 +108,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const entry = await storage.createDrinkEntry(data);
       res.status(201).json(entry);
     } catch (error) {
+      console.error("Error with drink entry data:", error);
       res.status(400).json({ error: "Invalid drink entry data" });
     }
   });
@@ -110,6 +124,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.status(204).send();
     } catch (error) {
+      console.error("Error deleting drink entry:", error);
       res.status(500).json({ error: "Failed to delete drink entry" });
     }
   });

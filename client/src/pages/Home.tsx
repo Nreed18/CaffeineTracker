@@ -1,4 +1,4 @@
-import { useRef, useMemo } from "react";
+import { useRef, useMemo, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useReactToPrint } from "react-to-print";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { format, startOfDay, isSameDay, startOfWeek, addDays } from "date-fns";
+import { format, startOfDay, isSameDay, startOfWeek, addDays, parseISO } from "date-fns";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { Period, DrinkEntry, InsertPeriod, InsertDrinkEntry } from "@shared/schema";
 import { useState } from "react";
@@ -57,17 +57,26 @@ export default function Home() {
 
   const { data: periods = [], isLoading: periodsLoading } = useQuery<Period[]>({
     queryKey: ["/api/periods"],
+    refetchInterval: 30000, // Auto-refresh every 30 seconds
+    refetchOnWindowFocus: true, // Refresh when user returns to tab
+    refetchIntervalInBackground: false, // Don't refresh when tab is not active
   });
 
   const { data: drinkEntries = [], isLoading: entriesLoading } = useQuery<DrinkEntry[]>({
     queryKey: ["/api/drink-entries"],
+    refetchInterval: 30000, // Auto-refresh every 30 seconds
+    refetchOnWindowFocus: true, // Refresh when user returns to tab
+    refetchIntervalInBackground: false, // Don't refresh when tab is not active
   });
 
-  const selectedPeriod = useMemo(() => {
+  // Auto-select first period if none selected
+  useEffect(() => {
     if (!selectedPeriodId && periods.length > 0) {
       setSelectedPeriodId(periods[0].id);
-      return periods[0];
     }
+  }, [selectedPeriodId, periods]);
+
+  const selectedPeriod = useMemo(() => {
     return periods.find(p => p.id === selectedPeriodId);
   }, [selectedPeriodId, periods]);
 
@@ -136,52 +145,37 @@ export default function Home() {
   const todayDrinkCount = useMemo(() => {
     const today = startOfDay(new Date());
     return drinkEntries.filter(entry => {
-      const matchesToday = isSameDay(new Date(entry.timestamp), today);
+      const entryDate = typeof entry.timestamp === 'string' ? parseISO(entry.timestamp) : entry.timestamp;
+      const matchesToday = isSameDay(entryDate, today);
       const matchesPeriod = selectedPeriod ? entry.periodId === selectedPeriod.id : true;
       return matchesToday && matchesPeriod;
     }).length;
   }, [drinkEntries, selectedPeriod]);
 
   const weekData = useMemo(() => {
-    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
-    
-    // Calculate Monday of the week to show
-    let monday: Date;
-    
+    // Show 5 consecutive days starting from period's start date
+    let startDate: Date;
+
     if (selectedPeriod) {
-      const periodStart = new Date(selectedPeriod.startDate);
-      const periodEnd = new Date(selectedPeriod.endDate);
-      
-      // Find the Monday-Friday week that best overlaps with the period
-      // Start by getting the Monday of the week containing the period start
-      const periodStartMonday = startOfWeek(periodStart, { weekStartsOn: 1 });
-      
-      // Check if period start is on weekend - if so, use next Monday
-      const periodStartDay = periodStart.getDay();
-      if (periodStartDay === 0 || periodStartDay === 6) {
-        // Weekend - find the next Monday
-        monday = periodStartDay === 0 
-          ? addDays(periodStart, 1) // Sunday -> Monday
-          : addDays(periodStart, 2); // Saturday -> Monday
-      } else {
-        // Weekday - use the Monday of this week
-        monday = periodStartMonday;
-      }
+      startDate = new Date(selectedPeriod.startDate);
     } else {
-      // No period selected - use current week
-      monday = startOfWeek(new Date(), { weekStartsOn: 1 });
+      // No period selected - use current week's Monday
+      startDate = startOfWeek(new Date(), { weekStartsOn: 1 });
     }
-    
-    return days.map((day, index) => {
-      const date = addDays(monday, index);
-      
+
+    // Generate 5 consecutive days with correct day labels
+    return Array.from({ length: 5 }, (_, index) => {
+      const date = addDays(startDate, index);
+      const dayLabel = format(date, 'EEE'); // Get actual day name (Mon, Tue, etc.)
+
       // Filter drinks by both date AND period
       const dayEntries = drinkEntries.filter(entry => {
-        const matchesDate = isSameDay(new Date(entry.timestamp), date);
+        const entryDate = typeof entry.timestamp === 'string' ? parseISO(entry.timestamp) : entry.timestamp;
+        const matchesDate = isSameDay(entryDate, date);
         const matchesPeriod = selectedPeriod ? entry.periodId === selectedPeriod.id : true;
         return matchesDate && matchesPeriod;
       });
-      
+
       const drinkTallies = dayEntries.reduce((acc, entry) => {
         const existing = acc.find(d => d.name === entry.drinkName);
         if (existing) {
@@ -191,9 +185,9 @@ export default function Home() {
         }
         return acc;
       }, [] as Array<{ name: string; count: number }>);
-      
+
       return {
-        day,
+        day: dayLabel, // Use actual day name
         date: format(date, 'MMM d'),
         drinks: drinkTallies,
       };
@@ -201,41 +195,33 @@ export default function Home() {
   }, [drinkEntries, selectedPeriod]);
 
   const dailyData = useMemo(() => {
-    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-    
-    // Calculate Monday of the week to show (same logic as weekData)
-    let monday: Date;
-    
+    // Show 5 consecutive days starting from period's start date
+    let startDate: Date;
+
     if (selectedPeriod) {
-      const periodStart = new Date(selectedPeriod.startDate);
-      const periodStartMonday = startOfWeek(periodStart, { weekStartsOn: 1 });
-      
-      const periodStartDay = periodStart.getDay();
-      if (periodStartDay === 0 || periodStartDay === 6) {
-        monday = periodStartDay === 0 
-          ? addDays(periodStart, 1)
-          : addDays(periodStart, 2);
-      } else {
-        monday = periodStartMonday;
-      }
+      startDate = new Date(selectedPeriod.startDate);
     } else {
-      monday = startOfWeek(new Date(), { weekStartsOn: 1 });
+      // No period selected - use current week's Monday
+      startDate = startOfWeek(new Date(), { weekStartsOn: 1 });
     }
-    
-    return days.map((day, index) => {
-      const date = addDays(monday, index);
-      
+
+    // Generate 5 consecutive days with correct full day names
+    return Array.from({ length: 5 }, (_, index) => {
+      const date = addDays(startDate, index);
+      const dayLabel = format(date, 'EEEE'); // Get full day name (Monday, Tuesday, etc.)
+
       // Filter drinks by both date AND period
       const dayEntries = drinkEntries.filter(entry => {
-        const matchesDate = isSameDay(new Date(entry.timestamp), date);
+        const entryDate = typeof entry.timestamp === 'string' ? parseISO(entry.timestamp) : entry.timestamp;
+        const matchesDate = isSameDay(entryDate, date);
         const matchesPeriod = selectedPeriod ? entry.periodId === selectedPeriod.id : true;
         return matchesDate && matchesPeriod;
       });
-      
+
       const totalCaffeine = dayEntries.reduce((sum, entry) => sum + entry.caffeineAmount, 0);
-      
+
       return {
-        day,
+        day: dayLabel, // Use actual day name
         caffeine: totalCaffeine,
       };
     });
@@ -243,15 +229,22 @@ export default function Home() {
 
   const stats = useMemo(() => {
     // Filter entries to only include those from the selected period
-    const periodEntries = selectedPeriod 
+    // If no period selected, only show entries from visible (non-hidden) periods
+    const periodEntries = selectedPeriod
       ? drinkEntries.filter(entry => entry.periodId === selectedPeriod.id)
-      : drinkEntries;
+      : drinkEntries.filter(entry => {
+          const period = periods.find(p => p.id === entry.periodId);
+          return period && !period.hidden;
+        });
     
     const totalCaffeine = periodEntries.reduce((sum, entry) => sum + entry.caffeineAmount, 0);
     const totalDrinks = periodEntries.length;
     
     const uniqueDays = new Set(
-      periodEntries.map(entry => format(startOfDay(new Date(entry.timestamp)), 'yyyy-MM-dd'))
+      periodEntries.map(entry => {
+        const entryDate = typeof entry.timestamp === 'string' ? parseISO(entry.timestamp) : entry.timestamp;
+        return format(startOfDay(entryDate), 'yyyy-MM-dd');
+      })
     ).size;
     
     const avgDrinksPerDay = uniqueDays > 0 ? totalDrinks / uniqueDays : 0;
@@ -263,20 +256,24 @@ export default function Home() {
       avgDrinksPerDay,
       avgCaffeinePerDay,
     };
-  }, [drinkEntries, selectedPeriod]);
+  }, [drinkEntries, selectedPeriod, periods]);
 
   const yearlyStats = useMemo(() => {
     const currentYear = new Date().getFullYear();
     const yearEntries = drinkEntries.filter(entry => {
-      const entryYear = new Date(entry.timestamp).getFullYear();
+      const entryDate = typeof entry.timestamp === 'string' ? parseISO(entry.timestamp) : entry.timestamp;
+      const entryYear = entryDate.getFullYear();
       return entryYear === currentYear;
     });
-    
+
     const totalCaffeine = yearEntries.reduce((sum, entry) => sum + entry.caffeineAmount, 0);
     const totalDrinks = yearEntries.length;
-    
+
     const uniqueDays = new Set(
-      yearEntries.map(entry => format(startOfDay(new Date(entry.timestamp)), 'yyyy-MM-dd'))
+      yearEntries.map(entry => {
+        const entryDate = typeof entry.timestamp === 'string' ? parseISO(entry.timestamp) : entry.timestamp;
+        return format(startOfDay(entryDate), 'yyyy-MM-dd');
+      })
     ).size;
     
     const avgDrinksPerDay = uniqueDays > 0 ? totalDrinks / uniqueDays : 0;
@@ -333,7 +330,17 @@ export default function Home() {
   const handleCustomDrinkSubmit = () => {
     if (customDrink.name && customDrink.caffeine && selectedPeriod) {
       const timestamp = new Date(`${customDrink.date}T${customDrink.time}`);
-      
+
+      // Validate that timestamp is a valid date
+      if (isNaN(timestamp.getTime())) {
+        toast({
+          title: "Invalid date/time",
+          description: "Please enter a valid date and time.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       createDrinkEntryMutation.mutate({
         periodId: selectedPeriod.id,
         drinkName: customDrink.name,
@@ -346,9 +353,9 @@ export default function Home() {
             description: `${customDrink.name} (${customDrink.caffeine}mg) added for ${format(timestamp, 'MMM d, h:mm a')}.`,
           });
           setCustomDrinkDialogOpen(false);
-          setCustomDrink({ 
-            name: "", 
-            caffeine: "", 
+          setCustomDrink({
+            name: "",
+            caffeine: "",
             date: format(new Date(), 'yyyy-MM-dd'),
             time: format(new Date(), 'HH:mm')
           });
@@ -369,6 +376,7 @@ export default function Home() {
 
     let successCount = 0;
     let failCount = 0;
+    const errors: string[] = [];
 
     for (const entry of entries) {
       try {
@@ -381,6 +389,8 @@ export default function Home() {
         successCount++;
       } catch (error) {
         failCount++;
+        const errorMsg = `${entry.drinkName} (${format(entry.timestamp, 'MMM d, h:mm a')})`;
+        errors.push(errorMsg);
         console.error("Failed to import entry:", entry, error);
       }
     }
@@ -389,7 +399,9 @@ export default function Home() {
 
     toast({
       title: "Bulk import complete!",
-      description: `Successfully imported ${successCount} drink(s)${failCount > 0 ? `, ${failCount} failed` : ''}.`,
+      description: failCount > 0
+        ? `Successfully imported ${successCount} drink(s). Failed: ${failCount}. ${errors.slice(0, 3).join(', ')}${errors.length > 3 ? '...' : ''}`
+        : `Successfully imported ${successCount} drink(s).`,
       variant: failCount > 0 ? "destructive" : "default",
     });
   };
@@ -440,14 +452,13 @@ export default function Home() {
   };
 
   const handleTogglePeriodHidden = (id: string, hidden: boolean) => {
-    // If hiding the currently selected period, clear the selection
-    // so the auto-select logic can pick the first visible period
-    if (hidden && id === selectedPeriodId) {
-      setSelectedPeriodId("");
-    }
-
     togglePeriodHiddenMutation.mutate({ id, hidden }, {
       onSuccess: () => {
+        // Clear selection only after successful hide operation
+        if (hidden && id === selectedPeriodId) {
+          setSelectedPeriodId("");
+        }
+
         toast({
           title: hidden ? "Period hidden" : "Period shown",
           description: hidden ? "The period has been hidden from the selector." : "The period is now visible in the selector.",
@@ -512,7 +523,7 @@ export default function Home() {
             <div className="mb-4">
               {periods.length > 0 ? (
                 <PeriodSelector
-                  periods={periods.map(p => ({ id: p.id, name: p.name }))}
+                  periods={periods.map(p => ({ id: p.id, name: p.name, hidden: p.hidden }))}
                   selectedPeriodId={selectedPeriodId}
                   onPeriodChange={setSelectedPeriodId}
                 />
@@ -641,12 +652,12 @@ export default function Home() {
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <DailyIntakeChart data={dailyData} />
-                  <DrinkHistoryList 
+                  <DrinkHistoryList
                     entries={drinkEntries
                       .filter(e => selectedPeriod ? e.periodId === selectedPeriod.id : true)
                       .map(e => ({
                         ...e,
-                        timestamp: new Date(e.timestamp),
+                        timestamp: typeof e.timestamp === 'string' ? parseISO(e.timestamp) : e.timestamp,
                       }))}
                     onDelete={(id) => deleteDrinkEntryMutation.mutate(id)}
                   />

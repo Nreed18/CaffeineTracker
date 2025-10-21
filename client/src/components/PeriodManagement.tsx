@@ -63,6 +63,16 @@ export function PeriodManagement({
   };
 
   const handleSubmit = () => {
+    // Validate that end date is not before start date
+    if (formData.startDate && formData.endDate) {
+      const start = new Date(formData.startDate);
+      const end = new Date(formData.endDate);
+      if (end < start) {
+        alert("End date cannot be before start date");
+        return;
+      }
+    }
+
     if (editingPeriod) {
       onEditPeriod?.(editingPeriod.id, formData);
     } else {

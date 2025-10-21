@@ -13,7 +13,9 @@ export const periods = pgTable("periods", {
 
 export const drinkEntries = pgTable("drink_entries", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  periodId: varchar("period_id").notNull(),
+  periodId: varchar("period_id")
+    .notNull()
+    .references(() => periods.id, { onDelete: "cascade" }),
   drinkName: text("drink_name").notNull(),
   caffeineAmount: integer("caffeine_amount").notNull(),
   timestamp: timestamp("timestamp").notNull().defaultNow(),
