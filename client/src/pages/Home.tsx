@@ -440,6 +440,12 @@ export default function Home() {
   };
 
   const handleTogglePeriodHidden = (id: string, hidden: boolean) => {
+    // If hiding the currently selected period, clear the selection
+    // so the auto-select logic can pick the first visible period
+    if (hidden && id === selectedPeriodId) {
+      setSelectedPeriodId("");
+    }
+
     togglePeriodHiddenMutation.mutate({ id, hidden }, {
       onSuccess: () => {
         toast({
@@ -550,9 +556,9 @@ export default function Home() {
                         </div>
                       </div>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        {quickDrinks.map((drink: DrinkConfig) => (
+                        {quickDrinks.map((drink: DrinkConfig, index: number) => (
                           <DrinkButton
-                            key={drink.name}
+                            key={`${drink.name}-${drink.caffeineAmount}-${index}`}
                             name={drink.name}
                             caffeineAmount={drink.caffeineAmount}
                             icon={drink.icon}
