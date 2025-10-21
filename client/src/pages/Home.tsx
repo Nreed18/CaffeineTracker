@@ -157,7 +157,9 @@ export default function Home() {
     let startDate: Date;
 
     if (selectedPeriod) {
-      startDate = new Date(selectedPeriod.startDate);
+      // Parse date string as local date to avoid timezone issues
+      const [year, month, day] = selectedPeriod.startDate.split('-').map(Number);
+      startDate = new Date(year, month - 1, day);
     } else {
       // No period selected - use current week's Monday
       startDate = startOfWeek(new Date(), { weekStartsOn: 1 });
@@ -199,7 +201,9 @@ export default function Home() {
     let startDate: Date;
 
     if (selectedPeriod) {
-      startDate = new Date(selectedPeriod.startDate);
+      // Parse date string as local date to avoid timezone issues
+      const [year, month, day] = selectedPeriod.startDate.split('-').map(Number);
+      startDate = new Date(year, month - 1, day);
     } else {
       // No period selected - use current week's Monday
       startDate = startOfWeek(new Date(), { weekStartsOn: 1 });
