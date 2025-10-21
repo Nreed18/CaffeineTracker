@@ -292,16 +292,24 @@ export default function Home() {
     };
   }, [drinkEntries]);
 
-  const reportData = useMemo(() => ({
-    periodName: selectedPeriod?.name || "All Time",
-    startDate: selectedPeriod ? new Date(selectedPeriod.startDate) : new Date(),
-    endDate: selectedPeriod ? new Date(selectedPeriod.endDate) : new Date(),
-    totalCaffeine: stats.totalCaffeine,
-    totalDrinks: stats.totalDrinks,
-    avgDrinksPerDay: stats.avgDrinksPerDay,
-    avgCaffeinePerDay: stats.avgCaffeinePerDay,
-    weekData: weekData,
-  }), [selectedPeriod, stats, weekData]);
+  const reportData = useMemo(() => {
+    // Parse dates as local dates to avoid timezone issues
+    const parseLocalDate = (dateStr: string) => {
+      const [year, month, day] = dateStr.split('-').map(Number);
+      return new Date(year, month - 1, day);
+    };
+
+    return {
+      periodName: selectedPeriod?.name || "All Time",
+      startDate: selectedPeriod ? parseLocalDate(selectedPeriod.startDate) : new Date(),
+      endDate: selectedPeriod ? parseLocalDate(selectedPeriod.endDate) : new Date(),
+      totalCaffeine: stats.totalCaffeine,
+      totalDrinks: stats.totalDrinks,
+      avgDrinksPerDay: stats.avgDrinksPerDay,
+      avgCaffeinePerDay: stats.avgCaffeinePerDay,
+      weekData: weekData,
+    };
+  }, [selectedPeriod, stats, weekData]);
 
   const handlePrint = useReactToPrint({
     content: () => printRef.current,
