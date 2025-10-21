@@ -32,8 +32,12 @@ export class DatabaseStorage implements IStorage {
       .insert(periods)
       .values({
         name: insertPeriod.name,
-        startDate: typeof insertPeriod.startDate === 'string' ? new Date(insertPeriod.startDate) : insertPeriod.startDate,
-        endDate: typeof insertPeriod.endDate === 'string' ? new Date(insertPeriod.endDate) : insertPeriod.endDate,
+        startDate: typeof insertPeriod.startDate === 'string'
+          ? insertPeriod.startDate
+          : insertPeriod.startDate.toISOString().split('T')[0],
+        endDate: typeof insertPeriod.endDate === 'string'
+          ? insertPeriod.endDate
+          : insertPeriod.endDate.toISOString().split('T')[0],
         hidden: 0,
       })
       .returning();
@@ -45,8 +49,12 @@ export class DatabaseStorage implements IStorage {
       .update(periods)
       .set({
         name: insertPeriod.name,
-        startDate: typeof insertPeriod.startDate === 'string' ? new Date(insertPeriod.startDate) : insertPeriod.startDate,
-        endDate: typeof insertPeriod.endDate === 'string' ? new Date(insertPeriod.endDate) : insertPeriod.endDate,
+        startDate: typeof insertPeriod.startDate === 'string'
+          ? insertPeriod.startDate
+          : insertPeriod.startDate.toISOString().split('T')[0],
+        endDate: typeof insertPeriod.endDate === 'string'
+          ? insertPeriod.endDate
+          : insertPeriod.endDate.toISOString().split('T')[0],
       })
       .where(eq(periods.id, id))
       .returning();

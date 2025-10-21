@@ -677,8 +677,8 @@ export default function Home() {
               periods={periods.map(p => ({
                 id: p.id,
                 name: p.name,
-                startDate: format(new Date(p.startDate), 'yyyy-MM-dd'),
-                endDate: format(new Date(p.endDate), 'yyyy-MM-dd'),
+                startDate: p.startDate, // Already in 'yyyy-MM-dd' format from database
+                endDate: p.endDate,     // Already in 'yyyy-MM-dd' format from database
                 hidden: p.hidden,
               }))}
               onAddPeriod={handleAddPeriod}
